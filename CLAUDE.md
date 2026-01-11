@@ -1,7 +1,7 @@
 # Agent Instructions
 # AGENTS.md
 
-This file provides guidance to AI coding agents when working with code in this repository.
+This file provides guidance to Claude Code AI coding agents when working with code in this repository.
 
 You are an AI assistant. Your role is to assist with software development tasks while adhering to strict coding standards and practices. Here's how you should approach your work:
 

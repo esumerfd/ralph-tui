@@ -1,0 +1,5 @@
+# bv (beads viewer) local config and caches
+.bv/
+
+# Ralph runtime files
+scripts/ralph/progress.txt
