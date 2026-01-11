@@ -11,6 +11,8 @@ import {
   printTrackerPlugins,
   printAgentPlugins,
   executeRunCommand,
+  executeStatusCommand,
+  executeResumeCommand,
 } from './commands/index.js';
 
 /**
@@ -25,6 +27,8 @@ Usage: ralph-tui [command] [options]
 Commands:
   (none)              Launch the interactive TUI
   run [options]       Start Ralph execution
+  resume [options]    Resume an interrupted session
+  status              Check session status
   plugins agents      List available agent plugins
   plugins trackers    List available tracker plugins
   help, --help, -h    Show this help message
@@ -36,15 +40,21 @@ Run Options:
   --model <name>      Override model (e.g., opus, sonnet)
   --tracker <name>    Override tracker plugin (e.g., beads, beads-bv, json)
   --iterations <n>    Maximum iterations (0 = unlimited)
-  --resume            Resume existing session
+  --resume            Resume existing session (deprecated, use 'resume' command)
   --headless          Run without TUI
+
+Resume Options:
+  --cwd <path>        Working directory
+  --headless          Run without TUI
+  --force             Override stale lock
 
 Examples:
   ralph-tui                              # Start the TUI
   ralph-tui run                          # Start execution with defaults
   ralph-tui run --epic myproject-epic    # Run with specific epic
   ralph-tui run --prd ./prd.json         # Run with PRD file
-  ralph-tui run --agent claude --model opus
+  ralph-tui resume                       # Resume interrupted session
+  ralph-tui status                       # Check session status
   ralph-tui plugins agents               # List agent plugins
   ralph-tui plugins trackers             # List tracker plugins
 `);
@@ -66,6 +76,18 @@ async function handleSubcommand(args: string[]): Promise<boolean> {
   // Run command
   if (command === 'run') {
     await executeRunCommand(args.slice(1));
+    return true;
+  }
+
+  // Resume command
+  if (command === 'resume') {
+    await executeResumeCommand(args.slice(1));
+    return true;
+  }
+
+  // Status command
+  if (command === 'status') {
+    await executeStatusCommand(args.slice(1));
     return true;
   }
 

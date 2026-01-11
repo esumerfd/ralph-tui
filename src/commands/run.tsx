@@ -14,6 +14,17 @@ import {
   resumeSession,
   endSession,
   cleanStaleLock,
+  hasPersistedSession,
+  loadPersistedSession,
+  savePersistedSession,
+  deletePersistedSession,
+  createPersistedSession,
+  updateSessionAfterIteration,
+  completeSession,
+  failSession,
+  isSessionResumable,
+  getSessionSummary,
+  type PersistedSessionState,
 } from '../session/index.js';
 import { ExecutionEngine } from '../engine/index.js';
 import { registerBuiltinAgents } from '../plugins/agents/builtin/index.js';
@@ -21,6 +32,8 @@ import { registerBuiltinTrackers } from '../plugins/trackers/builtin/index.js';
 import { getAgentRegistry } from '../plugins/agents/registry.js';
 import { getTrackerRegistry } from '../plugins/trackers/registry.js';
 import { RunApp } from '../tui/components/RunApp.js';
+import type { TrackerTask } from '../plugins/trackers/types.js';
+import type { RalphConfig } from '../config/types.js';
 
 /**
  * Parse CLI arguments for the run command
@@ -162,51 +175,91 @@ async function initializePlugins(): Promise<void> {
 
 /**
  * Handle session resume prompt
+ * Checks for persisted session state and prompts user
  */
 async function promptResumeOrNew(cwd: string): Promise<'resume' | 'new' | 'abort'> {
-  const sessionCheck = await checkSession(cwd);
+  // Check for persisted session file first
+  const hasPersistedSessionFile = await hasPersistedSession(cwd);
 
-  if (!sessionCheck.hasSession) {
+  if (!hasPersistedSessionFile) {
     return 'new';
   }
 
-  console.log('\nExisting session found:');
-  if (sessionCheck.session) {
-    console.log(`  Started: ${sessionCheck.session.startedAt}`);
-    console.log(`  Status: ${sessionCheck.session.status}`);
-    console.log(`  Iteration: ${sessionCheck.session.currentIteration}`);
-    console.log(`  Tasks completed: ${sessionCheck.session.tasksCompleted}`);
+  const persistedState = await loadPersistedSession(cwd);
+  if (!persistedState) {
+    return 'new';
   }
 
-  if (sessionCheck.isLocked) {
-    console.log('\nSession is currently locked by another process.');
-    console.log(`  PID: ${sessionCheck.lock?.pid}`);
-    console.log(`  Acquired: ${sessionCheck.lock?.acquiredAt}`);
+  const summary = getSessionSummary(persistedState);
+  const resumable = isSessionResumable(persistedState);
 
-    if (sessionCheck.isStale) {
-      console.log('\nLock appears stale (process not running).');
-      console.log('Use --force to clean up and start fresh.');
-    } else {
-      console.log('\nCannot start while another instance is running.');
-      return 'abort';
-    }
+  console.log('');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('                  Existing Session Found                        ');
+  console.log('═══════════════════════════════════════════════════════════════');
+  console.log('');
+  console.log(`  Status:      ${summary.status.toUpperCase()}`);
+  console.log(`  Started:     ${new Date(summary.startedAt).toLocaleString()}`);
+  console.log(`  Progress:    ${summary.tasksCompleted}/${summary.totalTasks} tasks complete`);
+  console.log(`  Iteration:   ${summary.currentIteration}${summary.maxIterations > 0 ? `/${summary.maxIterations}` : ''}`);
+  console.log(`  Agent:       ${summary.agentPlugin}`);
+  console.log(`  Tracker:     ${summary.trackerPlugin}`);
+  if (summary.epicId) {
+    console.log(`  Epic:        ${summary.epicId}`);
+  }
+  console.log('');
+
+  // Check for lock conflict
+  const sessionCheck = await checkSession(cwd);
+  if (sessionCheck.isLocked && !sessionCheck.isStale) {
+    console.log('  WARNING: Session is currently locked by another process.');
+    console.log(`           PID: ${sessionCheck.lock?.pid}`);
+    console.log('');
+    console.log('Cannot start while another instance is running.');
+    return 'abort';
   }
 
-  // In a real implementation, this would prompt the user
-  // For now, we'll return 'new' to start a fresh session
-  console.log('\nStarting fresh session (use --resume to continue existing)');
-  return 'new';
+  if (resumable) {
+    console.log('This session can be resumed.');
+    console.log('');
+    console.log('  To resume:  ralph-tui resume');
+    console.log('  To start fresh: ralph-tui run --force');
+    console.log('');
+    console.log('Starting fresh session...');
+    console.log('(Use --resume flag or "ralph-tui resume" command to continue)');
+    return 'new';
+  } else {
+    console.log('This session has completed and cannot be resumed.');
+    console.log('Starting fresh session...');
+    return 'new';
+  }
 }
 
 /**
  * Run the execution engine with TUI
  */
-async function runWithTui(engine: ExecutionEngine): Promise<void> {
+async function runWithTui(
+  engine: ExecutionEngine,
+  persistedState: PersistedSessionState,
+  _config: RalphConfig
+): Promise<PersistedSessionState> {
+  let currentState = persistedState;
+
   const renderer = await createCliRenderer({
     exitOnCtrlC: false, // We handle this ourselves
   });
 
   const root = createRoot(renderer);
+
+  // Subscribe to iteration events to save state
+  engine.on((event) => {
+    if (event.type === 'iteration:completed') {
+      currentState = updateSessionAfterIteration(currentState, event.result);
+      savePersistedSession(currentState).catch(() => {
+        // Log but don't fail on save errors
+      });
+    }
+  });
 
   // Create cleanup function
   const cleanup = async (): Promise<void> => {
@@ -216,6 +269,9 @@ async function runWithTui(engine: ExecutionEngine): Promise<void> {
 
   // Handle process signals
   const handleSignal = async (): Promise<void> => {
+    // Save interrupted state
+    currentState = { ...currentState, status: 'interrupted' };
+    await savePersistedSession(currentState);
     await cleanup();
     process.exit(0);
   };
@@ -228,6 +284,9 @@ async function runWithTui(engine: ExecutionEngine): Promise<void> {
     <RunApp
       engine={engine}
       onQuit={async () => {
+        // Save interrupted state
+        currentState = { ...currentState, status: 'interrupted' };
+        await savePersistedSession(currentState);
         await cleanup();
         process.exit(0);
       }}
@@ -239,13 +298,21 @@ async function runWithTui(engine: ExecutionEngine): Promise<void> {
 
   // Clean up when done
   await cleanup();
+
+  return currentState;
 }
 
 /**
  * Run in headless mode (no TUI)
  */
-async function runHeadless(engine: ExecutionEngine): Promise<void> {
-  // Subscribe to events for console output
+async function runHeadless(
+  engine: ExecutionEngine,
+  persistedState: PersistedSessionState,
+  _config: RalphConfig
+): Promise<PersistedSessionState> {
+  let currentState = persistedState;
+
+  // Subscribe to events for console output and state persistence
   engine.on((event) => {
     switch (event.type) {
       case 'engine:started':
@@ -262,6 +329,11 @@ async function runHeadless(engine: ExecutionEngine): Promise<void> {
             `Task ${event.result.taskCompleted ? 'DONE' : 'in progress'}. ` +
             `Duration: ${Math.round(event.result.durationMs / 1000)}s`
         );
+        // Save state after each iteration
+        currentState = updateSessionAfterIteration(currentState, event.result);
+        savePersistedSession(currentState).catch(() => {
+          // Log but don't fail on save errors
+        });
         break;
 
       case 'iteration:failed':
@@ -275,7 +347,7 @@ async function runHeadless(engine: ExecutionEngine): Promise<void> {
         break;
 
       case 'all:complete':
-        console.log('\n🎉 All tasks complete!');
+        console.log('\nAll tasks complete!');
         break;
     }
   });
@@ -283,6 +355,9 @@ async function runHeadless(engine: ExecutionEngine): Promise<void> {
   // Handle process signals
   const handleSignal = async (): Promise<void> => {
     console.log('\nInterrupted, stopping...');
+    // Save interrupted state
+    currentState = { ...currentState, status: 'interrupted' };
+    await savePersistedSession(currentState);
     await engine.dispose();
     process.exit(0);
   };
@@ -293,6 +368,8 @@ async function runHeadless(engine: ExecutionEngine): Promise<void> {
   // Start the engine
   await engine.start();
   await engine.dispose();
+
+  return currentState;
 }
 
 /**
@@ -336,6 +413,7 @@ export async function executeRunCommand(args: string[]): Promise<void> {
 
   // Check for existing session
   const sessionCheck = await checkSession(config.cwd);
+  const hasPersistedSessionFile = await hasPersistedSession(config.cwd);
 
   if (sessionCheck.isLocked && !sessionCheck.isStale && !options.force) {
     console.error('\nError: Another Ralph instance is already running.');
@@ -349,6 +427,18 @@ export async function executeRunCommand(args: string[]): Promise<void> {
     await cleanStaleLock(config.cwd);
   }
 
+  // Handle existing persisted session
+  if (hasPersistedSessionFile && !options.force && !options.resume) {
+    const choice = await promptResumeOrNew(config.cwd);
+    if (choice === 'abort') {
+      process.exit(1);
+    }
+    // Delete old session file if starting fresh
+    if (choice === 'new') {
+      await deletePersistedSession(config.cwd);
+    }
+  }
+
   // Handle resume or new session
   let session;
   if (options.resume && sessionCheck.hasSession) {
@@ -359,14 +449,6 @@ export async function executeRunCommand(args: string[]): Promise<void> {
       process.exit(1);
     }
   } else {
-    // Prompt if session exists and not forcing
-    if (sessionCheck.hasSession && !options.force) {
-      const choice = await promptResumeOrNew(config.cwd);
-      if (choice === 'abort') {
-        process.exit(1);
-      }
-    }
-
     // Create new session (task count will be updated after tracker init)
     session = await createSession({
       agentPlugin: config.agent.plugin,
@@ -394,8 +476,13 @@ export async function executeRunCommand(args: string[]): Promise<void> {
   // Create and initialize engine
   const engine = new ExecutionEngine(config);
 
+  let tasks: TrackerTask[] = [];
   try {
     await engine.initialize();
+    // Get tasks for persisted state
+    const trackerRegistry = getTrackerRegistry();
+    const tracker = await trackerRegistry.getInstance(config.tracker);
+    tasks = await tracker.getTasks({ status: ['open', 'in_progress'] });
   } catch (error) {
     console.error(
       'Failed to initialize engine:',
@@ -405,23 +492,60 @@ export async function executeRunCommand(args: string[]): Promise<void> {
     process.exit(1);
   }
 
+  // Create persisted session state
+  let persistedState = createPersistedSession({
+    sessionId: session.id,
+    agentPlugin: config.agent.plugin,
+    model: config.model,
+    trackerPlugin: config.tracker.plugin,
+    epicId: config.epicId,
+    prdPath: config.prdPath,
+    maxIterations: config.maxIterations,
+    tasks,
+    cwd: config.cwd,
+  });
+
+  // Save initial state
+  await savePersistedSession(persistedState);
+
   // Run with TUI or headless
   try {
     if (config.showTui) {
-      await runWithTui(engine);
+      persistedState = await runWithTui(engine, persistedState, config);
     } else {
-      await runHeadless(engine);
+      persistedState = await runHeadless(engine, persistedState, config);
     }
   } catch (error) {
     console.error(
       'Execution error:',
       error instanceof Error ? error.message : error
     );
+    // Save failed state
+    persistedState = failSession(persistedState);
+    await savePersistedSession(persistedState);
     await endSession(config.cwd, 'failed');
     process.exit(1);
   }
 
+  // Check if all tasks completed successfully
+  const finalState = engine.getState();
+  const allComplete = finalState.tasksCompleted >= finalState.totalTasks ||
+    finalState.status === 'idle';
+
+  if (allComplete) {
+    // Mark as completed and clean up session file
+    persistedState = completeSession(persistedState);
+    await savePersistedSession(persistedState);
+    // Delete session file on successful completion
+    await deletePersistedSession(config.cwd);
+    console.log('\nSession completed successfully. Session file cleaned up.');
+  } else {
+    // Save current state (session remains resumable)
+    await savePersistedSession(persistedState);
+    console.log('\nSession state saved. Use "ralph-tui resume" to continue.');
+  }
+
   // End session
-  await endSession(config.cwd, 'completed');
+  await endSession(config.cwd, allComplete ? 'completed' : 'interrupted');
   console.log('\nRalph TUI finished.');
 }

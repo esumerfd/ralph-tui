@@ -15,3 +15,14 @@ export {
   parseRunArgs,
   printRunHelp,
 } from './run.jsx';
+
+export {
+  executeStatusCommand,
+  printStatusHelp,
+} from './status.js';
+
+export {
+  executeResumeCommand,
+  parseResumeArgs,
+  printResumeHelp,
+} from './resume.jsx';

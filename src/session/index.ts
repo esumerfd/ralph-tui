@@ -346,3 +346,27 @@ export type {
   CreateSessionOptions,
   SessionStatus,
 };
+
+// Re-export persistence module
+export {
+  hasPersistedSession,
+  loadPersistedSession,
+  savePersistedSession,
+  deletePersistedSession,
+  createPersistedSession,
+  updateSessionAfterIteration,
+  pauseSession,
+  resumePersistedSession,
+  completeSession,
+  failSession,
+  addSkippedTask,
+  isSessionResumable,
+  getSessionSummary,
+} from './persistence.js';
+
+export type {
+  TaskStatusSnapshot,
+  TrackerStateSnapshot,
+  PersistedSessionState,
+  PersistedIterationResult,
+} from './persistence.js';
