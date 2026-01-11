@@ -819,3 +819,27 @@ Started: Sun 11 Jan 10:55:32 GMT 2026
   - Labels are always comma-separated for both CLI args and internal arrays
   - Sync failures shouldn't abort the whole conversion (beads are already created)
 ---
+
+## 2026-01-11 - ralph-tui-45r.28
+- What was implemented:
+  - US-028: Status Command (Headless) with full acceptance criteria
+  - Enhanced `ralph-tui status` command for CI/scripts use
+  - Added --json flag for machine-readable JSON output
+  - Status types: running, paused, completed, failed, no-session
+  - Task progress: X/Y completed with percentage
+  - Iteration progress: current/max iterations
+  - Elapsed time in seconds (JSON) and human-readable format (text)
+  - Active tracker and agent plugin names displayed
+  - Exit codes for CI: 0 (completed), 1 (running/paused), 2 (failed/no-session)
+  - Lock check to determine running status (process actually running vs stale lock)
+  - StatusJsonOutput type with full session/lock details
+  - Updated CLI help with Status Options section and examples
+- Files changed:
+  - src/commands/status.ts (rewritten) - Full implementation with JSON output and exit codes
+  - src/cli.tsx (updated) - Added Status Options and --json example
+- **Learnings:**
+  - CI tools need both JSON output AND proper exit codes for pipeline integration
+  - Lock check + session file status together determine actual running state
+  - Separating data gathering from display logic enables both human and machine outputs
+  - Exit codes should be semantic: 0=success, 1=in-progress, 2=error/no-session
+---

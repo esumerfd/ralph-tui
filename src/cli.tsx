@@ -36,7 +36,7 @@ Commands:
   convert [options]   Convert PRD markdown to JSON format
   run [options]       Start Ralph execution
   resume [options]    Resume an interrupted session
-  status              Check session status
+  status [options]    Check session status (headless, for CI/scripts)
   logs [options]      View/manage iteration output logs
   setup [options]     Run interactive project setup
   config show         Display merged configuration
@@ -62,6 +62,10 @@ Resume Options:
   --headless          Run without TUI
   --force             Override stale lock
 
+Status Options:
+  --json              Output in JSON format for CI/scripts
+  --cwd <path>        Working directory
+
 Convert Options:
   --to <format>       Target format: json
   --output, -o <path> Output file path (default: ./prd.json)
@@ -77,6 +81,7 @@ Examples:
   ralph-tui run --prd ./prd.json         # Run with PRD file
   ralph-tui resume                       # Resume interrupted session
   ralph-tui status                       # Check session status
+  ralph-tui status --json                # JSON output for CI/scripts
   ralph-tui logs                         # List iteration logs
   ralph-tui logs --iteration 5           # View specific iteration
   ralph-tui logs --task US-005           # View logs for a task
