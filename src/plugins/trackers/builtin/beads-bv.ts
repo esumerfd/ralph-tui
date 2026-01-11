@@ -273,18 +273,12 @@ export class BeadsBvTrackerPlugin extends BeadsTrackerPlugin {
   };
 
   private bvAvailable = false;
-  private useRecipe: string = '';
   private lastTriageOutput: BvTriageOutput | null = null;
   private taskReasoningCache: Map<string, TaskReasoning> = new Map();
 
   override async initialize(config: Record<string, unknown>): Promise<void> {
     // Initialize base beads plugin
     await super.initialize(config);
-
-    // Parse bv-specific config
-    if (typeof config.recipe === 'string') {
-      this.useRecipe = config.recipe;
-    }
 
     // Check if bv is available
     const detection = await this.detect();
@@ -338,37 +332,8 @@ export class BeadsBvTrackerPlugin extends BeadsTrackerPlugin {
   }
 
   override getSetupQuestions(): SetupQuestion[] {
-    // Include parent questions plus bv-specific ones
-    const parentQuestions = super.getSetupQuestions();
-
-    return [
-      ...parentQuestions,
-      {
-        id: 'recipe',
-        prompt: 'bv recipe to use for filtering:',
-        type: 'select',
-        choices: [
-          {
-            value: '',
-            label: 'None',
-            description: 'No pre-filtering, use all open issues',
-          },
-          {
-            value: 'actionable',
-            label: 'Actionable',
-            description: 'Issues ready to work (no blockers)',
-          },
-          {
-            value: 'high-impact',
-            label: 'High Impact',
-            description: 'Issues with highest PageRank scores',
-          },
-        ],
-        default: 'actionable',
-        required: false,
-        help: 'Pre-filter issues using bv recipes',
-      },
-    ];
+    // Include parent questions (no bv-specific config needed)
+    return super.getSetupQuestions();
   }
 
   override async validateSetup(
@@ -408,11 +373,6 @@ export class BeadsBvTrackerPlugin extends BeadsTrackerPlugin {
     try {
       // Build bv command args
       const args = ['--robot-triage'];
-
-      // Apply recipe filter if configured
-      if (this.useRecipe) {
-        args.unshift('--recipe', this.useRecipe);
-      }
 
       // Apply label filter if configured
       const labels = this.getLabels();
@@ -552,9 +512,6 @@ export class BeadsBvTrackerPlugin extends BeadsTrackerPlugin {
     }
 
     const args = ['--robot-triage'];
-    if (this.useRecipe) {
-      args.unshift('--recipe', this.useRecipe);
-    }
     const labels = this.getLabels();
     if (labels.length > 0) {
       args.push('--label', labels[0]!);
