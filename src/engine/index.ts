@@ -896,3 +896,10 @@ export type {
   IterationStatus,
   SubagentTreeNode,
 };
+
+// Re-export rate limit detector
+export {
+  RateLimitDetector,
+  type RateLimitDetectionResult,
+  type RateLimitDetectionInput,
+} from './rate-limit-detector.js';
