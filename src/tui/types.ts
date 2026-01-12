@@ -104,6 +104,20 @@ export interface LeftPanelProps {
 export type DetailsViewMode = 'details' | 'output';
 
 /**
+ * Timing information for an iteration (for output view display)
+ */
+export interface IterationTimingInfo {
+  /** ISO 8601 timestamp when iteration started */
+  startedAt?: string;
+  /** ISO 8601 timestamp when iteration ended */
+  endedAt?: string;
+  /** Duration in milliseconds */
+  durationMs?: number;
+  /** Whether the iteration is currently running */
+  isRunning?: boolean;
+}
+
+/**
  * Props for the RightPanel (details) component
  */
 export interface RightPanelProps {
@@ -117,6 +131,8 @@ export interface RightPanelProps {
   viewMode?: DetailsViewMode;
   /** Callback when view mode should be toggled */
   onToggleViewMode?: () => void;
+  /** Timing information for the iteration (optional) */
+  iterationTiming?: IterationTimingInfo;
 }
 
 /**

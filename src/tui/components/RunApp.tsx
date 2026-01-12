@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { colors, layout } from '../theme.js';
 import type { RalphStatus, TaskStatus } from '../theme.js';
-import type { TaskItem, BlockerInfo, DetailsViewMode } from '../types.js';
+import type { TaskItem, BlockerInfo, DetailsViewMode, IterationTimingInfo } from '../types.js';
 import { Header } from './Header.js';
 import { Footer } from './Footer.js';
 import { LeftPanel } from './LeftPanel.js';
@@ -254,10 +254,10 @@ export function RunApp({
   const [showSettings, setShowSettings] = useState(false);
   // Show/hide closed tasks filter (default: show closed tasks)
   const [showClosedTasks, setShowClosedTasks] = useState(true);
-  // Cache for historical iteration output loaded from disk (taskId -> stdout)
-  const [historicalOutputCache, setHistoricalOutputCache] = useState<Map<string, string>>(
-    () => new Map()
-  );
+  // Cache for historical iteration output loaded from disk (taskId -> { output, timing })
+  const [historicalOutputCache, setHistoricalOutputCache] = useState<
+    Map<string, { output: string; timing: IterationTimingInfo }>
+  >(() => new Map());
   // Current task info for status display
   const [currentTaskId, setCurrentTaskId] = useState<string | undefined>(undefined);
   const [currentTaskTitle, setCurrentTaskTitle] = useState<string | undefined>(undefined);
@@ -680,38 +680,55 @@ export function RunApp({
   // Get selected task from filtered list
   const selectedTask = displayedTasks[selectedIndex] ?? null;
 
-  // Compute the iteration output to show for the selected task
-  // - If selected task is currently executing: show live currentOutput
-  // - If selected task has a completed iteration: show that iteration's output
+  // Compute the iteration output and timing to show for the selected task
+  // - If selected task is currently executing: show live currentOutput with isRunning
+  // - If selected task has a completed iteration: show that iteration's output with timing
   // - Otherwise: undefined (will show "waiting" or appropriate message)
   const selectedTaskIteration = useMemo(() => {
-    if (!selectedTask) return { iteration: currentIteration, output: undefined };
+    if (!selectedTask)
+      return { iteration: currentIteration, output: undefined, timing: undefined };
 
     // Check if this task is currently being executed
     if (currentTaskId === selectedTask.id) {
-      return { iteration: currentIteration, output: currentOutput };
+      // Find the iteration:started event timestamp for this task
+      const runningIteration = iterations.find(
+        (iter) => iter.task.id === selectedTask.id && iter.status === 'running'
+      );
+      const timing: IterationTimingInfo = {
+        startedAt: runningIteration?.startedAt,
+        isRunning: true,
+      };
+      return { iteration: currentIteration, output: currentOutput, timing };
     }
 
     // Look for a completed iteration for this task (in-memory from current session)
     const taskIteration = iterations.find((iter) => iter.task.id === selectedTask.id);
     if (taskIteration) {
+      const timing: IterationTimingInfo = {
+        startedAt: taskIteration.startedAt,
+        endedAt: taskIteration.endedAt,
+        durationMs: taskIteration.durationMs,
+        isRunning: taskIteration.status === 'running',
+      };
       return {
         iteration: taskIteration.iteration,
         output: taskIteration.agentResult?.stdout ?? '',
+        timing,
       };
     }
 
     // Check historical output cache (loaded from disk)
-    const historicalOutput = historicalOutputCache.get(selectedTask.id);
-    if (historicalOutput !== undefined) {
+    const historicalData = historicalOutputCache.get(selectedTask.id);
+    if (historicalData !== undefined) {
       return {
         iteration: -1, // Historical iteration number unknown, use -1 to indicate "past"
-        output: historicalOutput,
+        output: historicalData.output,
+        timing: historicalData.timing,
       };
     }
 
     // Task hasn't been run yet (or historical log not yet loaded)
-    return { iteration: 0, output: undefined };
+    return { iteration: 0, output: undefined, timing: undefined };
   }, [selectedTask, currentTaskId, currentIteration, currentOutput, iterations, historicalOutputCache]);
 
   // Load historical iteration logs from disk when a completed task is selected
@@ -730,16 +747,22 @@ export function RunApp({
         if (logs.length > 0) {
           // Use the most recent log (last one)
           const mostRecent = logs[logs.length - 1];
+          const timing: IterationTimingInfo = {
+            startedAt: mostRecent.metadata.startedAt,
+            endedAt: mostRecent.metadata.endedAt,
+            durationMs: mostRecent.metadata.durationMs,
+            isRunning: false,
+          };
           setHistoricalOutputCache((prev) => {
             const next = new Map(prev);
-            next.set(selectedTask.id, mostRecent.stdout);
+            next.set(selectedTask.id, { output: mostRecent.stdout, timing });
             return next;
           });
         } else {
-          // No logs found - mark as empty string to avoid repeated lookups
+          // No logs found - mark as empty output with no timing to avoid repeated lookups
           setHistoricalOutputCache((prev) => {
             const next = new Map(prev);
-            next.set(selectedTask.id, '');
+            next.set(selectedTask.id, { output: '', timing: {} });
             return next;
           });
         }
@@ -819,6 +842,7 @@ export function RunApp({
               currentIteration={selectedTaskIteration.iteration}
               iterationOutput={selectedTaskIteration.output}
               viewMode={detailsViewMode}
+              iterationTiming={selectedTaskIteration.timing}
             />
           </>
         ) : (
@@ -835,6 +859,7 @@ export function RunApp({
               currentIteration={selectedTaskIteration.iteration}
               iterationOutput={selectedTaskIteration.output}
               viewMode={detailsViewMode}
+              iterationTiming={selectedTaskIteration.timing}
             />
           </>
         )}
