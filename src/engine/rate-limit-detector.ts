@@ -50,9 +50,11 @@ interface RateLimitPattern {
  * Common rate limit patterns that apply to most agents.
  */
 const COMMON_PATTERNS: RateLimitPattern[] = [
-  // HTTP 429 status code
+  // HTTP 429 status code - must appear in error/HTTP context, not just any "429"
+  // Matches: "429 Too Many", "HTTP 429", "status 429", "error 429", "code 429"
+  // Excludes: line numbers like "429→" or "line 429"
   {
-    pattern: /\b429\b/i,
+    pattern: /(?:HTTP|status|error|code|response)[\s:]*429|429\s*(?:too many|rate limit|error)/i,
     retryAfterPattern: /retry[- ]?after[:\s]+(\d+)\s*s/i,
   },
   // Generic rate limit phrases
@@ -144,22 +146,29 @@ export class RateLimitDetector {
    * @returns Detection result with isRateLimit flag and optional message/retryAfter
    */
   detect(input: RateLimitDetectionInput): RateLimitDetectionResult {
-    const { stderr, stdout = '', exitCode, agentId } = input;
+    const { stderr, exitCode, agentId } = input;
 
-    // Combine stderr and stdout for pattern matching
-    // Some agents may emit errors to stdout
-    const combinedOutput = `${stderr}\n${stdout}`;
+    // IMPORTANT: Only check stderr for rate limit detection.
+    // Checking stdout causes false positives when agents output code containing
+    // words like "rate limit", "429", etc. Real rate limit errors from CLI tools
+    // are written to stderr.
+    const outputToCheck = stderr;
+
+    // If stderr is empty and exit code is 0, definitely not a rate limit
+    if (!outputToCheck.trim() && exitCode === 0) {
+      return { isRateLimit: false };
+    }
 
     // Get patterns to check: common + agent-specific
     const patterns = this.getPatternsForAgent(agentId);
 
-    // Check each pattern
+    // Check each pattern against stderr only
     for (const { pattern, retryAfterPattern } of patterns) {
-      if (pattern.test(combinedOutput)) {
+      if (pattern.test(outputToCheck)) {
         // Found a match - extract message and retryAfter
-        const message = this.extractMessage(combinedOutput, pattern);
+        const message = this.extractMessage(outputToCheck, pattern);
         const retryAfter = retryAfterPattern
-          ? this.extractRetryAfter(combinedOutput, retryAfterPattern)
+          ? this.extractRetryAfter(outputToCheck, retryAfterPattern)
           : undefined;
 
         return {
@@ -174,12 +183,12 @@ export class RateLimitDetector {
     // A non-zero exit code alone isn't enough, but it can confirm suspicion
     if (exitCode !== undefined && exitCode !== 0) {
       // Look for any rate-limit-like keywords that might have been missed
-      const looseMatch = this.looseRateLimitCheck(combinedOutput);
+      const looseMatch = this.looseRateLimitCheck(outputToCheck);
       if (looseMatch && RATE_LIMIT_EXIT_CODES.has(exitCode)) {
         return {
           isRateLimit: true,
           message: looseMatch,
-          retryAfter: this.extractAnyRetryAfter(combinedOutput),
+          retryAfter: this.extractAnyRetryAfter(outputToCheck),
         };
       }
     }
