@@ -34,7 +34,11 @@ export const DEFAULT_TEMPLATE = `## Task
 {{/if}}
 
 ## Instructions
-Complete the task described above. When finished, signal completion with:
+Complete the task described above.
+
+**IMPORTANT**: If the work is already complete (implemented in a previous iteration or already exists), verify it works correctly and signal completion immediately.
+
+When finished (or if already complete), signal completion with:
 <promise>COMPLETE</promise>
 `;
 
@@ -67,7 +71,9 @@ export const BEADS_TEMPLATE = `## Bead Details
 3. Commit: feat: {{taskId}} - {{taskTitle}}
 4. Close the bead when done (bd update {{taskId}} --status=closed --close_reason="...")
 
-When finished, signal completion with:
+**IMPORTANT**: If the work is already complete (implemented in a previous iteration or already exists), verify it works correctly and signal completion immediately.
+
+When finished (or if already complete), signal completion with:
 <promise>COMPLETE</promise>
 `;
 
@@ -110,7 +116,9 @@ Completing this task will unblock: {{blocks}}
 3. Commit: feat: {{taskId}} - {{taskTitle}}
 4. Close the bead when done (bd update {{taskId}} --status=closed --close_reason="...")
 
-When finished, signal completion with:
+**IMPORTANT**: If the work is already complete (implemented in a previous iteration or already exists), verify it works correctly and signal completion immediately.
+
+When finished (or if already complete), signal completion with:
 <promise>COMPLETE</promise>
 `;
 
@@ -151,6 +159,8 @@ export const JSON_TEMPLATE = `## User Story
 3. Commit your changes with a descriptive message
 4. The story will be marked as complete when you signal completion
 
-When finished, signal completion with:
+**IMPORTANT**: If the work is already complete (implemented in a previous iteration or already exists), verify it meets the acceptance criteria and signal completion immediately.
+
+When finished (or if already complete), signal completion with:
 <promise>COMPLETE</promise>
 `;

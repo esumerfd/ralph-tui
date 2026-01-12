@@ -6,7 +6,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { colors, getTaskStatusColor, getTaskStatusIndicator } from '../theme.js';
 import type { RightPanelProps, DetailsViewMode, IterationTimingInfo, SubagentTreeNode, TaskPriority } from '../types.js';
 import type { SubagentDetailLevel } from '../../config/types.js';
@@ -426,8 +426,33 @@ function TaskMetadataView({
 
 /**
  * Timing summary component for the output view
+ * Shows started time immediately, duration that updates every second while running,
+ * and ended time when complete.
  */
 function TimingSummary({ timing }: { timing?: IterationTimingInfo }): ReactNode {
+  // Track elapsed time for running iterations
+  const [elapsedMs, setElapsedMs] = useState<number>(0);
+
+  useEffect(() => {
+    if (!timing?.isRunning || !timing?.startedAt) {
+      return;
+    }
+
+    // Calculate initial elapsed time
+    const startTime = new Date(timing.startedAt).getTime();
+    const updateElapsed = () => {
+      setElapsedMs(Date.now() - startTime);
+    };
+
+    // Update immediately
+    updateElapsed();
+
+    // Update every second
+    const interval = setInterval(updateElapsed, 1000);
+
+    return () => clearInterval(interval);
+  }, [timing?.isRunning, timing?.startedAt]);
+
   if (!timing || (!timing.startedAt && !timing.isRunning)) {
     return null;
   }
@@ -435,7 +460,9 @@ function TimingSummary({ timing }: { timing?: IterationTimingInfo }): ReactNode 
   // Calculate duration for display
   let durationDisplay: string;
   if (timing.isRunning && timing.startedAt) {
-    durationDisplay = 'Running...';
+    // Show live elapsed time
+    const durationSeconds = Math.floor(elapsedMs / 1000);
+    durationDisplay = formatElapsedTime(durationSeconds);
   } else if (timing.durationMs !== undefined) {
     const durationSeconds = Math.floor(timing.durationMs / 1000);
     durationDisplay = formatElapsedTime(durationSeconds);

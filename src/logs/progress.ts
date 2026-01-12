@@ -37,6 +37,7 @@ export interface ProgressEntry {
   durationMs: number;
   notes?: string;
   insights?: string[];
+  error?: string;
 }
 
 /**
@@ -101,6 +102,12 @@ function formatProgressEntry(entry: ProgressEntry): string {
     lines.push('**Status:** Failed/Incomplete');
   }
 
+  if (entry.error) {
+    lines.push('');
+    lines.push('**Error:**');
+    lines.push(entry.error);
+  }
+
   if (entry.notes) {
     lines.push('');
     lines.push('**Notes:**');
@@ -137,6 +144,7 @@ export function createProgressEntry(result: IterationResult): ProgressEntry {
     durationMs: result.durationMs ?? 0,
     notes: extractCompletionNotes(output),
     insights: extractInsights(output),
+    error: result.error,
   };
 }
 

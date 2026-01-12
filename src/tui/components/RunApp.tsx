@@ -341,6 +341,8 @@ export function RunApp({
   // Current task info for status display
   const [currentTaskId, setCurrentTaskId] = useState<string | undefined>(undefined);
   const [currentTaskTitle, setCurrentTaskTitle] = useState<string | undefined>(undefined);
+  // Current iteration start time (ISO timestamp)
+  const [currentIterationStartedAt, setCurrentIterationStartedAt] = useState<string | undefined>(undefined);
   // Epic loader overlay state
   const [showEpicLoader, setShowEpicLoader] = useState(false);
   const [epicLoaderEpics, setEpicLoaderEpics] = useState<TrackerTask[]>([]);
@@ -469,6 +471,8 @@ export function RunApp({
           // Set current task info for display
           setCurrentTaskId(event.task.id);
           setCurrentTaskTitle(event.task.title);
+          // Capture the iteration start time for timing display
+          setCurrentIterationStartedAt(event.timestamp);
           setStatus('executing');
           // Auto-switch to output view when iteration starts
           setDetailsViewMode('output');
@@ -489,6 +493,7 @@ export function RunApp({
           // Clear current task info and transition back to selecting
           setCurrentTaskId(undefined);
           setCurrentTaskTitle(undefined);
+          setCurrentIterationStartedAt(undefined);
           setStatus('selecting');
           if (event.result.taskCompleted) {
             // Update completed task status AND recalculate dependency status for all tasks
@@ -908,6 +913,7 @@ export function RunApp({
       // If there's a current task executing, show its output even if no task selected
       if (currentTaskId) {
         const timing: IterationTimingInfo = {
+          startedAt: currentIterationStartedAt,
           isRunning: true,
         };
         return { iteration: currentIteration, output: currentOutput, timing };
@@ -919,12 +925,9 @@ export function RunApp({
     // Use both ID match AND status check for robustness against state timing issues
     const isExecuting = currentTaskId === selectedTask.id || selectedTask.status === 'active';
     if (isExecuting && currentTaskId) {
-      // Find the iteration:started event timestamp for this task
-      const runningIteration = iterations.find(
-        (iter) => iter.task.id === currentTaskId && iter.status === 'running'
-      );
+      // Use the captured start time from the iteration:started event
       const timing: IterationTimingInfo = {
-        startedAt: runningIteration?.startedAt,
+        startedAt: currentIterationStartedAt,
         isRunning: true,
       };
       return { iteration: currentIteration, output: currentOutput, timing };
