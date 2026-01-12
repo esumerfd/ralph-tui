@@ -1,25 +1,26 @@
 /**
  * ABOUTME: Session persistence for Ralph TUI.
  * Handles saving and loading full session state including task statuses,
- * iteration history, and tracker state to .ralph-tui-session.json in the project root.
+ * iteration history, and tracker state to .ralph-tui/session.json.
  */
 
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import {
   readFile,
   writeFile,
   unlink,
   access,
   constants,
+  mkdir,
 } from 'node:fs/promises';
 import type { TrackerTask, TrackerTaskStatus } from '../plugins/trackers/types.js';
 import type { IterationResult } from '../engine/types.js';
 import type { SessionStatus } from './types.js';
 
 /**
- * Session file name in project root
+ * Session file path relative to cwd (inside .ralph-tui directory)
  */
-const SESSION_FILE = '.ralph-tui-session.json';
+const SESSION_FILE = '.ralph-tui/session.json';
 
 /**
  * Task status snapshot for persistence
@@ -53,7 +54,7 @@ export interface TrackerStateSnapshot {
 
 /**
  * Persisted session state
- * Saved to .ralph-tui-session.json in project root
+ * Saved to .ralph-tui/session.json
  */
 export interface PersistedSessionState {
   /** Schema version for forward compatibility */
@@ -206,6 +207,9 @@ export async function savePersistedSession(
   state: PersistedSessionState
 ): Promise<void> {
   const filePath = getSessionFilePath(state.cwd);
+
+  // Ensure directory exists
+  await mkdir(dirname(filePath), { recursive: true });
 
   // Update timestamp
   const updatedState: PersistedSessionState = {

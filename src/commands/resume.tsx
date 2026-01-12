@@ -438,7 +438,7 @@ Options:
 
 Description:
   Resumes execution from a previously interrupted or paused session.
-  The session state is stored in .ralph-tui-session.json in the project root.
+  The session state is stored in .ralph-tui/session.json.
 
   Sessions can be resumed if they are in one of these states:
   - paused: Manually paused by user
