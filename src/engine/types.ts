@@ -8,6 +8,43 @@ import type { AgentExecutionResult } from '../plugins/agents/types.js';
 import type { SubagentState as ParserSubagentState } from '../plugins/agents/tracing/types.js';
 
 /**
+ * Reason why an agent is currently active.
+ * - 'primary': The configured primary agent
+ * - 'fallback': A fallback agent due to rate limiting of primary
+ */
+export type ActiveAgentReason = 'primary' | 'fallback';
+
+/**
+ * Tracks which agent is currently active and why.
+ * Used by TUI to display accurate agent status.
+ */
+export interface ActiveAgentState {
+  /** Plugin identifier of the active agent (e.g., 'claude', 'opencode') */
+  plugin: string;
+
+  /** Why this agent is active */
+  reason: ActiveAgentReason;
+
+  /** When this agent became active (ISO 8601) */
+  since: string;
+}
+
+/**
+ * Tracks rate limit state for agents.
+ * Persists across iterations until primary agent is recovered.
+ */
+export interface RateLimitState {
+  /** Plugin identifier of the primary agent */
+  primaryAgent: string;
+
+  /** When the primary agent was rate limited (ISO 8601), undefined if not limited */
+  limitedAt?: string;
+
+  /** Plugin identifier of the fallback agent in use, undefined if not using fallback */
+  fallbackAgent?: string;
+}
+
+/**
  * Status of a tracked subagent in the engine.
  */
 export type EngineSubagentStatus = 'running' | 'completed' | 'error';
@@ -168,6 +205,7 @@ export type EngineEventType =
   | 'task:activated'
   | 'task:completed'
   | 'agent:output'
+  | 'agent:switched'
   | 'all:complete'
   | 'tasks:refreshed';
 
@@ -364,6 +402,21 @@ export interface AgentOutputEvent extends EngineEventBase {
 }
 
 /**
+ * Agent switched event - emitted when the engine switches between primary and fallback agents.
+ */
+export interface AgentSwitchedEvent extends EngineEventBase {
+  type: 'agent:switched';
+  /** Previous agent plugin identifier */
+  previousAgent: string;
+  /** New agent plugin identifier */
+  newAgent: string;
+  /** Reason for the switch */
+  reason: ActiveAgentReason;
+  /** Rate limit state at time of switch (if switching due to rate limit) */
+  rateLimitState?: RateLimitState;
+}
+
+/**
  * All tasks complete event
  */
 export interface AllCompleteEvent extends EngineEventBase {
@@ -401,6 +454,7 @@ export type EngineEvent =
   | TaskActivatedEvent
   | TaskCompletedEvent
   | AgentOutputEvent
+  | AgentSwitchedEvent
   | AllCompleteEvent
   | TasksRefreshedEvent;
 
@@ -455,4 +509,16 @@ export interface EngineState {
    * Maps subagent ID to its state.
    */
   subagents: Map<string, EngineSubagentState>;
+
+  /**
+   * Currently active agent state.
+   * Tracks which agent is running and why (primary or fallback).
+   */
+  activeAgent: ActiveAgentState | null;
+
+  /**
+   * Rate limit state for agent switching.
+   * Persists across iterations until primary agent is recovered.
+   */
+  rateLimitState: RateLimitState | null;
 }

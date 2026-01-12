@@ -5,6 +5,9 @@
  */
 
 import type {
+  ActiveAgentState,
+  ActiveAgentReason,
+  AgentSwitchedEvent,
   EngineEvent,
   EngineEventListener,
   EngineState,
@@ -15,6 +18,7 @@ import type {
   IterationResult,
   IterationStatus,
   IterationRateLimitedEvent,
+  RateLimitState,
   SubagentTreeNode,
 } from './types.js';
 import { toEngineSubagentState } from './types.js';
@@ -109,6 +113,8 @@ export class ExecutionEngine {
       currentOutput: '',
       currentStderr: '',
       subagents: new Map(),
+      activeAgent: null,
+      rateLimitState: null,
     };
 
     // Initialize subagent parser with event handler
@@ -143,6 +149,19 @@ export class ExecutionEngine {
         `Agent '${this.config.agent.plugin}' not available: ${detectResult.error}`
       );
     }
+
+    // Initialize active agent state
+    const now = new Date().toISOString();
+    this.state.activeAgent = {
+      plugin: this.config.agent.plugin,
+      reason: 'primary',
+      since: now,
+    };
+
+    // Initialize rate limit state tracking the primary agent
+    this.state.rateLimitState = {
+      primaryAgent: this.config.agent.plugin,
+    };
 
     // Get tracker instance
     const trackerRegistry = getTrackerRegistry();
@@ -1054,6 +1073,107 @@ export class ExecutionEngine {
   }
 
   /**
+   * Get the current active agent information.
+   * Returns the active agent state for TUI display.
+   */
+  getActiveAgentInfo(): Readonly<ActiveAgentState> | null {
+    return this.state.activeAgent ? { ...this.state.activeAgent } : null;
+  }
+
+  /**
+   * Get the current rate limit state.
+   * Returns rate limit tracking state for TUI display.
+   */
+  getRateLimitState(): Readonly<RateLimitState> | null {
+    return this.state.rateLimitState ? { ...this.state.rateLimitState } : null;
+  }
+
+  /**
+   * Switch to a different agent.
+   * Updates state, emits agent:switched event, and persists across iterations.
+   *
+   * @param newAgentPlugin - Plugin identifier of the agent to switch to
+   * @param reason - Why the switch is happening (primary recovery or fallback)
+   */
+  private switchAgent(newAgentPlugin: string, reason: ActiveAgentReason): void {
+    const previousAgent = this.state.activeAgent?.plugin ?? this.config.agent.plugin;
+    const now = new Date().toISOString();
+
+    // Update active agent state
+    this.state.activeAgent = {
+      plugin: newAgentPlugin,
+      reason,
+      since: now,
+    };
+
+    // Update rate limit state based on reason
+    if (reason === 'fallback' && this.state.rateLimitState) {
+      this.state.rateLimitState = {
+        ...this.state.rateLimitState,
+        limitedAt: now,
+        fallbackAgent: newAgentPlugin,
+      };
+    } else if (reason === 'primary' && this.state.rateLimitState) {
+      // Recovering to primary - clear rate limit tracking
+      this.state.rateLimitState = {
+        primaryAgent: this.state.rateLimitState.primaryAgent,
+        // Clear limitedAt and fallbackAgent on recovery
+      };
+    }
+
+    // Emit agent switched event
+    const event: AgentSwitchedEvent = {
+      type: 'agent:switched',
+      timestamp: now,
+      previousAgent,
+      newAgent: newAgentPlugin,
+      reason,
+      rateLimitState: this.state.rateLimitState ?? undefined,
+    };
+    this.emit(event);
+  }
+
+  /**
+   * Check if primary agent should be recovered between iterations.
+   * Called when recoverPrimaryBetweenIterations is enabled.
+   */
+  private shouldRecoverPrimaryAgent(): boolean {
+    // Only attempt recovery if currently using a fallback
+    if (this.state.activeAgent?.reason !== 'fallback') {
+      return false;
+    }
+
+    // Check if recovery is enabled
+    return this.rateLimitConfig.recoverPrimaryBetweenIterations;
+  }
+
+  /**
+   * Attempt to recover the primary agent.
+   * Called between iterations when rate limit may have expired.
+   * Returns true if recovery was successful.
+   */
+  recoverPrimaryAgent(): boolean {
+    if (!this.shouldRecoverPrimaryAgent()) {
+      return false;
+    }
+
+    // Switch back to primary agent
+    const primaryAgent = this.state.rateLimitState?.primaryAgent ?? this.config.agent.plugin;
+    this.switchAgent(primaryAgent, 'primary');
+    return true;
+  }
+
+  /**
+   * Switch to a fallback agent due to rate limiting.
+   * Called when primary agent hits rate limit and max retries exceeded.
+   *
+   * @param fallbackAgentPlugin - Plugin identifier of the fallback agent
+   */
+  switchToFallbackAgent(fallbackAgentPlugin: string): void {
+    this.switchAgent(fallbackAgentPlugin, 'fallback');
+  }
+
+  /**
    * Dispose of engine resources
    */
   async dispose(): Promise<void> {
@@ -1064,6 +1184,9 @@ export class ExecutionEngine {
 
 // Re-export types
 export type {
+  ActiveAgentReason,
+  ActiveAgentState,
+  AgentSwitchedEvent,
   EngineEvent,
   EngineEventListener,
   EngineState,
@@ -1074,6 +1197,7 @@ export type {
   IterationRateLimitedEvent,
   IterationResult,
   IterationStatus,
+  RateLimitState,
   SubagentTreeNode,
 };
 
