@@ -52,6 +52,8 @@ import { projectConfigExists, runSetupWizard } from '../setup/index.js';
 import { createInterruptHandler } from '../interruption/index.js';
 import type { InterruptHandler } from '../interruption/types.js';
 import { createStructuredLogger, clearProgress } from '../logs/index.js';
+import { sendCompletionNotification, sendMaxIterationsNotification, sendErrorNotification, resolveNotificationsEnabled } from '../notifications.js';
+import type { NotificationSoundMode } from '../config/types.js';
 
 /**
  * Extended runtime options with noSetup flag
@@ -698,14 +700,29 @@ function RunAppWrapper({
  * The engine may stop for various reasons (all tasks done, max iterations, no tasks, error)
  * but the TUI remains visible so the user can review results before exiting.
  */
+/**
+ * Notification options for run command
+ */
+interface NotificationRunOptions {
+  /** Whether notifications are enabled (resolved from config + CLI) */
+  notificationsEnabled: boolean;
+  /** Sound mode for notifications */
+  soundMode: NotificationSoundMode;
+}
+
 async function runWithTui(
   engine: ExecutionEngine,
   persistedState: PersistedSessionState,
   config: RalphConfig,
   initialTasks: TrackerTask[],
-  storedConfig?: StoredConfig
+  storedConfig?: StoredConfig,
+  notificationOptions?: NotificationRunOptions
 ): Promise<PersistedSessionState> {
   let currentState = persistedState;
+  // Track when engine starts for duration calculation
+  let engineStartTime: Date | null = null;
+  // Track last error for error notification
+  let lastError: string | null = null;
   let showDialogCallback: (() => void) | null = null;
   let hideDialogCallback: (() => void) | null = null;
   let cancelledCallback: (() => void) | null = null;
@@ -753,6 +770,47 @@ async function runWithTui(
       savePersistedSession(currentState).catch(() => {
         // Log but don't fail on save errors
       });
+    } else if (event.type === 'engine:started') {
+      // Track when engine started for duration calculation
+      engineStartTime = new Date();
+    } else if (event.type === 'all:complete') {
+      // Send completion notification if enabled
+      if (notificationOptions?.notificationsEnabled && engineStartTime) {
+        const durationMs = Date.now() - engineStartTime.getTime();
+        sendCompletionNotification({
+          durationMs,
+          taskCount: event.totalCompleted,
+          sound: notificationOptions.soundMode,
+        });
+      }
+    } else if (event.type === 'engine:stopped' && event.reason === 'max_iterations') {
+      // Send max iterations notification if enabled
+      if (notificationOptions?.notificationsEnabled && engineStartTime) {
+        const durationMs = Date.now() - engineStartTime.getTime();
+        const engineState = engine.getState();
+        const tasksRemaining = engineState.totalTasks - event.tasksCompleted;
+        sendMaxIterationsNotification({
+          iterationsRun: event.totalIterations,
+          tasksCompleted: event.tasksCompleted,
+          tasksRemaining,
+          durationMs,
+          sound: notificationOptions.soundMode,
+        });
+      }
+    } else if (event.type === 'iteration:failed' && event.action === 'abort') {
+      // Track the error for notification when engine stops
+      lastError = event.error;
+    } else if (event.type === 'engine:stopped' && event.reason === 'error') {
+      // Send error notification if enabled
+      if (notificationOptions?.notificationsEnabled && engineStartTime) {
+        const durationMs = Date.now() - engineStartTime.getTime();
+        sendErrorNotification({
+          errorSummary: lastError ?? 'Unknown error',
+          tasksCompleted: event.tasksCompleted,
+          durationMs,
+          sound: notificationOptions.soundMode,
+        });
+      }
     }
   });
 
@@ -893,11 +951,16 @@ async function runWithTui(
 async function runHeadless(
   engine: ExecutionEngine,
   persistedState: PersistedSessionState,
-  config: RalphConfig
+  config: RalphConfig,
+  notificationOptions?: NotificationRunOptions
 ): Promise<PersistedSessionState> {
   let currentState = persistedState;
   let lastSigintTime = 0;
   const DOUBLE_PRESS_WINDOW_MS = 1000;
+  // Track when engine starts for duration calculation
+  let engineStartTime: Date | null = null;
+  // Track last error for error notification
+  let lastError: string | null = null;
 
   // Create structured logger for headless output
   const logger = createStructuredLogger();
@@ -907,6 +970,8 @@ async function runHeadless(
     switch (event.type) {
       case 'engine:started':
         logger.engineStarted(event.totalTasks);
+        // Track when engine started for duration calculation
+        engineStartTime = new Date();
         break;
 
       case 'iteration:started':
@@ -957,6 +1022,10 @@ async function runHeadless(
           event.error,
           event.action
         );
+        // Track error for notification if this will abort
+        if (event.action === 'abort') {
+          lastError = event.error;
+        }
         break;
 
       case 'iteration:retrying':
@@ -1004,10 +1073,42 @@ async function runHeadless(
 
       case 'engine:stopped':
         logger.engineStopped(event.reason, event.totalIterations, event.tasksCompleted);
+        // Send max iterations notification if enabled
+        if (event.reason === 'max_iterations' && notificationOptions?.notificationsEnabled && engineStartTime) {
+          const durationMs = Date.now() - engineStartTime.getTime();
+          const engineState = engine.getState();
+          const tasksRemaining = engineState.totalTasks - event.tasksCompleted;
+          sendMaxIterationsNotification({
+            iterationsRun: event.totalIterations,
+            tasksCompleted: event.tasksCompleted,
+            tasksRemaining,
+            durationMs,
+            sound: notificationOptions.soundMode,
+          });
+        }
+        // Send error notification if enabled
+        if (event.reason === 'error' && notificationOptions?.notificationsEnabled && engineStartTime) {
+          const durationMs = Date.now() - engineStartTime.getTime();
+          sendErrorNotification({
+            errorSummary: lastError ?? 'Unknown error',
+            tasksCompleted: event.tasksCompleted,
+            durationMs,
+            sound: notificationOptions.soundMode,
+          });
+        }
         break;
 
       case 'all:complete':
         logger.allComplete(event.totalCompleted, event.totalIterations);
+        // Send completion notification if enabled
+        if (notificationOptions?.notificationsEnabled && engineStartTime) {
+          const durationMs = Date.now() - engineStartTime.getTime();
+          sendCompletionNotification({
+            durationMs,
+            taskCount: event.totalCompleted,
+            sound: notificationOptions.soundMode,
+          });
+        }
         break;
 
       case 'task:completed':
@@ -1333,15 +1434,26 @@ export async function executeRunCommand(args: string[]): Promise<void> {
   // Save initial state
   await savePersistedSession(persistedState);
 
+  // Resolve notification settings from config + CLI flags
+  const notificationsEnabled = resolveNotificationsEnabled(
+    storedConfig?.notifications,
+    options.notify
+  );
+  const soundMode: NotificationSoundMode = storedConfig?.notifications?.sound ?? 'off';
+  const notificationRunOptions: NotificationRunOptions = {
+    notificationsEnabled,
+    soundMode,
+  };
+
   // Run with TUI or headless
   try {
     if (config.showTui) {
       // Pass tasks for initial TUI display in "ready" state
       // Also pass storedConfig for settings view
-      persistedState = await runWithTui(engine, persistedState, config, tasks, storedConfig);
+      persistedState = await runWithTui(engine, persistedState, config, tasks, storedConfig, notificationRunOptions);
     } else {
       // Headless mode still auto-starts (for CI/automation)
-      persistedState = await runHeadless(engine, persistedState, config);
+      persistedState = await runHeadless(engine, persistedState, config, notificationRunOptions);
     }
   } catch (error) {
     console.error(

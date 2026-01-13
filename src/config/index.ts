@@ -13,7 +13,6 @@ import type {
   RalphConfig,
   RuntimeOptions,
   ConfigValidationResult,
-  SubagentDetailLevel,
 } from './types.js';
 import { DEFAULT_CONFIG, DEFAULT_ERROR_HANDLING } from './types.js';
 import type { ErrorHandlingConfig } from '../engine/types.js';
@@ -161,6 +160,24 @@ function mergeConfigs(global: StoredConfig, project: StoredConfig): StoredConfig
   // Override prompt template
   if (project.prompt_template !== undefined) {
     merged.prompt_template = project.prompt_template;
+  }
+
+  // Override other scalar fields
+  if (project.progressFile !== undefined) merged.progressFile = project.progressFile;
+  if (project.autoCommit !== undefined) merged.autoCommit = project.autoCommit;
+  if (project.subagentTracingDetail !== undefined) {
+    merged.subagentTracingDetail = project.subagentTracingDetail;
+  }
+
+  // Replace arrays entirely if present in project config
+  if (project.fallbackAgents !== undefined) merged.fallbackAgents = project.fallbackAgents;
+
+  // Merge nested objects
+  if (project.rateLimitHandling !== undefined) {
+    merged.rateLimitHandling = { ...merged.rateLimitHandling, ...project.rateLimitHandling };
+  }
+  if (project.notifications !== undefined) {
+    merged.notifications = { ...merged.notifications, ...project.notifications };
   }
 
   return merged;
@@ -606,7 +623,7 @@ export async function validateConfig(
 }
 
 // Re-export types
-export type { StoredConfig, RalphConfig, RuntimeOptions, ConfigValidationResult, SubagentDetailLevel };
+export type { StoredConfig, RalphConfig, RuntimeOptions, ConfigValidationResult, SubagentDetailLevel, NotificationSoundMode } from './types.js';
 export { DEFAULT_CONFIG };
 
 // Export schema utilities
@@ -618,6 +635,7 @@ export {
   TrackerPluginConfigSchema,
   ErrorHandlingConfigSchema,
   SubagentDetailLevelSchema,
+  NotificationSoundModeSchema,
 } from './schema.js';
 export type {
   ConfigParseResult,

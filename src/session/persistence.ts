@@ -184,12 +184,17 @@ export async function loadPersistedSession(
     const parsed = JSON.parse(content) as PersistedSessionState;
 
     // Validate schema version
-    if (parsed.version !== 1) {
+    // Treat undefined as version 1 (backward compatible with pre-versioning files)
+    const version = parsed.version ?? 1;
+    if (version !== 1) {
       console.warn(
-        `Unknown session file version: ${parsed.version}. ` +
+        `Unknown session file version: ${version}. ` +
           'Session may not load correctly.'
       );
     }
+
+    // Ensure version field is set for future saves
+    parsed.version = 1;
 
     return parsed;
   } catch (error) {
