@@ -1,12 +1,9 @@
 #!/usr/bin/env bun
 /**
  * ABOUTME: CLI entry point for the Ralph TUI application.
- * Handles subcommands (plugins, run, etc.) and launches the TUI when no subcommand given.
+ * Handles subcommands (plugins, run, etc.) and defaults to 'run' when no subcommand given.
  */
 
-import { createCliRenderer } from '@opentui/core';
-import { createRoot } from '@opentui/react';
-import { App } from './tui/index.js';
 import {
   printTrackerPlugins,
   printAgentPlugins,
@@ -33,7 +30,7 @@ Ralph TUI - AI Agent Loop Orchestrator
 Usage: ralph-tui [command] [options]
 
 Commands:
-  (none)              Launch the interactive TUI
+  (none)              Start Ralph execution (same as 'run')
   create-prd [opts]   Create a new PRD interactively (alias: prime)
   convert [options]   Convert PRD markdown to JSON format
   run [options]       Start Ralph execution
@@ -77,7 +74,7 @@ Convert Options:
   --force, -f         Overwrite existing files
 
 Examples:
-  ralph-tui                              # Start the TUI
+  ralph-tui                              # Start execution (same as 'run')
   ralph-tui create-prd                   # Create a new PRD interactively
   ralph-tui create-prd --chat            # Create PRD with AI chat mode
   ralph-tui convert --to json ./prd.md   # Convert PRD to JSON
@@ -217,21 +214,6 @@ async function handleSubcommand(args: string[]): Promise<boolean> {
 }
 
 /**
- * Launch the interactive TUI.
- */
-async function launchTui(): Promise<void> {
-  // Create the OpenTUI CLI renderer
-  const renderer = await createCliRenderer({
-    // Exit on Ctrl+C (we also handle 'q' and Escape in the App)
-    exitOnCtrlC: true,
-  });
-
-  // Create the React root and render the App
-  const root = createRoot(renderer);
-  root.render(<App />);
-}
-
-/**
  * Main entry point
  */
 async function main(): Promise<void> {
@@ -244,8 +226,8 @@ async function main(): Promise<void> {
     return;
   }
 
-  // No subcommand - launch the TUI
-  await launchTui();
+  // No subcommand - default to 'run' command
+  await executeRunCommand(args);
 }
 
 // Run the main function
