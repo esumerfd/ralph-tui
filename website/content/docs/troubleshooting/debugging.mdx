@@ -112,13 +112,44 @@ cat .ralph-tui-session.json | jq .
 
 ### Common Session Issues
 
-<Tabs
-  items={[
-    { label: "Stale Lock", value: "stale-lock", content: "If the `lockPid` refers to a dead process:\n\n```bash\n# Check if the process exists\nps -p $(cat .ralph-tui-session.json | jq -r '.lockPid')\n\n# Force resume if it doesn't\nralph-tui resume --force\n```" },
-    { label: "Corrupted State", value: "corrupted", content: "If the session file is malformed:\n\n```bash\n# Validate JSON syntax\ncat .ralph-tui-session.json | jq . 2>&1\n\n# Back up and recreate if corrupted\nmv .ralph-tui-session.json .ralph-tui-session.json.bak\nralph-tui run --prd ./prd.json\n```" },
-    { label: "Missing File", value: "missing", content: "If the session file doesn't exist:\n\n```bash\n# There's no session to resume - start fresh\nralph-tui run --prd ./prd.json\n```" }
-  ]}
-/>
+<TabsRoot defaultValue="stale-lock">
+  <TabsList>
+    <TabsTrigger value="stale-lock">Stale Lock</TabsTrigger>
+    <TabsTrigger value="corrupted">Corrupted State</TabsTrigger>
+    <TabsTrigger value="missing">Missing File</TabsTrigger>
+  </TabsList>
+  <TabsContent value="stale-lock">
+    If the `lockPid` refers to a dead process:
+
+    ```bash
+    # Check if the process exists
+    ps -p $(cat .ralph-tui-session.json | jq -r '.lockPid')
+
+    # Force resume if it doesn't
+    ralph-tui resume --force
+    ```
+  </TabsContent>
+  <TabsContent value="corrupted">
+    If the session file is malformed:
+
+    ```bash
+    # Validate JSON syntax
+    cat .ralph-tui-session.json | jq . 2>&1
+
+    # Back up and recreate if corrupted
+    mv .ralph-tui-session.json .ralph-tui-session.json.bak
+    ralph-tui run --prd ./prd.json
+    ```
+  </TabsContent>
+  <TabsContent value="missing">
+    If the session file doesn't exist:
+
+    ```bash
+    # There's no session to resume - start fresh
+    ralph-tui run --prd ./prd.json
+    ```
+  </TabsContent>
+</TabsRoot>
 
 ---
 

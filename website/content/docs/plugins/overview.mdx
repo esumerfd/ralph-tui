@@ -100,13 +100,40 @@ The execution engine orchestrates plugins:
 
 ## Choosing Plugins
 
-<Tabs
-  items={[
-    { label: "Getting Started", value: "getting-started", content: "Start with the **JSON tracker** and **Claude Code agent**:\n\n```bash\nralph-tui run --prd ./prd.json --agent claude\n```\n\nNo external dependencies needed - just create a `prd.json` file and go." },
-    { label: "Team Projects", value: "team", content: "Use **Beads tracker** for git-backed issue tracking:\n\n```bash\nralph-tui run --tracker beads --epic my-epic\n```\n\nIssues sync across team members via git." },
-    { label: "Large Projects", value: "large", content: "Use **Beads-BV tracker** for intelligent task selection:\n\n```bash\nralph-tui run --tracker beads-bv --epic my-epic\n```\n\nBV uses PageRank and critical path analysis to pick tasks that unblock the most work." }
-  ]}
-/>
+<TabsRoot defaultValue="getting-started">
+  <TabsList>
+    <TabsTrigger value="getting-started">Getting Started</TabsTrigger>
+    <TabsTrigger value="team">Team Projects</TabsTrigger>
+    <TabsTrigger value="large">Large Projects</TabsTrigger>
+  </TabsList>
+  <TabsContent value="getting-started">
+    Start with the **JSON tracker** and **Claude Code agent**:
+
+    ```bash
+    ralph-tui run --prd ./prd.json --agent claude
+    ```
+
+    No external dependencies needed - just create a `prd.json` file and go.
+  </TabsContent>
+  <TabsContent value="team">
+    Use **Beads tracker** for git-backed issue tracking:
+
+    ```bash
+    ralph-tui run --tracker beads --epic my-epic
+    ```
+
+    Issues sync across team members via git.
+  </TabsContent>
+  <TabsContent value="large">
+    Use **Beads-BV tracker** for intelligent task selection:
+
+    ```bash
+    ralph-tui run --tracker beads-bv --epic my-epic
+    ```
+
+    BV uses PageRank and critical path analysis to pick tasks that unblock the most work.
+  </TabsContent>
+</TabsRoot>
 
 ## Configuration
 

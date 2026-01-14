@@ -120,13 +120,33 @@ If you don't see real-time output from the agent:
 
 ### Agent Crashes or Exits Unexpectedly
 
-<Tabs
-  items={[
-    { label: "Rate Limiting", value: "rate-limit", content: "API rate limits can cause agent failures. See the [Rate Limiting](#rate-limiting) section below for solutions." },
-    { label: "Memory Issues", value: "memory", content: "Large codebases or long conversations can exhaust memory:\n- Keep user stories small and focused\n- Use `maxIterations` to limit session length\n- Consider breaking work into smaller batches" },
-    { label: "Auth Errors", value: "auth", content: "Verify your API credentials are configured:\n\n```bash\n# For Claude Code\nclaude config show\n\n# Check environment variables\necho $ANTHROPIC_API_KEY\n```" }
-  ]}
-/>
+<TabsRoot defaultValue="rate-limit">
+  <TabsList>
+    <TabsTrigger value="rate-limit">Rate Limiting</TabsTrigger>
+    <TabsTrigger value="memory">Memory Issues</TabsTrigger>
+    <TabsTrigger value="auth">Auth Errors</TabsTrigger>
+  </TabsList>
+  <TabsContent value="rate-limit">
+    API rate limits can cause agent failures. See the [Rate Limiting](#rate-limiting) section below for solutions.
+  </TabsContent>
+  <TabsContent value="memory">
+    Large codebases or long conversations can exhaust memory:
+    - Keep user stories small and focused
+    - Use `maxIterations` to limit session length
+    - Consider breaking work into smaller batches
+  </TabsContent>
+  <TabsContent value="auth">
+    Verify your API credentials are configured:
+
+    ```bash
+    # For Claude Code
+    claude config show
+
+    # Check environment variables
+    echo $ANTHROPIC_API_KEY
+    ```
+  </TabsContent>
+</TabsRoot>
 
 ---
 

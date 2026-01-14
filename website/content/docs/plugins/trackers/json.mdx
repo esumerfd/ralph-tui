@@ -263,13 +263,62 @@ The JSON tracker validates your file and provides helpful error messages:
 
 ### Common Mistakes
 
-<Tabs
-  items={[
-    { label: "Wrong Field: tasks", value: "tasks", content: "```json\n// Wrong - AI often generates this\n{\n  \"prd\": { ... },\n  \"tasks\": [ ... ]\n}\n\n// Correct\n{\n  \"name\": \"...\",\n  \"userStories\": [ ... ]\n}\n```" },
-    { label: "Wrong Field: status", value: "status", content: "```json\n// Wrong - AI often uses status\n{\n  \"id\": \"US-001\",\n  \"title\": \"...\",\n  \"status\": \"open\"\n}\n\n// Correct - use passes boolean\n{\n  \"id\": \"US-001\",\n  \"title\": \"...\",\n  \"passes\": false\n}\n```" },
-    { label: "Unsupported Fields", value: "unsupported", content: "```json\n// Wrong - not supported\n{\n  \"id\": \"US-001\",\n  \"subtasks\": [ ... ],\n  \"estimated_hours\": 4\n}\n\n// Correct - keep it simple\n{\n  \"id\": \"US-001\",\n  \"title\": \"...\",\n  \"passes\": false\n}\n```" }
-  ]}
-/>
+<TabsRoot defaultValue="tasks">
+  <TabsList>
+    <TabsTrigger value="tasks">Wrong Field: tasks</TabsTrigger>
+    <TabsTrigger value="status">Wrong Field: status</TabsTrigger>
+    <TabsTrigger value="unsupported">Unsupported Fields</TabsTrigger>
+  </TabsList>
+  <TabsContent value="tasks">
+    ```json
+    // Wrong - AI often generates this
+    {
+      "prd": { ... },
+      "tasks": [ ... ]
+    }
+
+    // Correct
+    {
+      "name": "...",
+      "userStories": [ ... ]
+    }
+    ```
+  </TabsContent>
+  <TabsContent value="status">
+    ```json
+    // Wrong - AI often uses status
+    {
+      "id": "US-001",
+      "title": "...",
+      "status": "open"
+    }
+
+    // Correct - use passes boolean
+    {
+      "id": "US-001",
+      "title": "...",
+      "passes": false
+    }
+    ```
+  </TabsContent>
+  <TabsContent value="unsupported">
+    ```json
+    // Wrong - not supported
+    {
+      "id": "US-001",
+      "subtasks": [ ... ],
+      "estimated_hours": 4
+    }
+
+    // Correct - keep it simple
+    {
+      "id": "US-001",
+      "title": "...",
+      "passes": false
+    }
+    ```
+  </TabsContent>
+</TabsRoot>
 
 ### Fix Invalid Files
 
