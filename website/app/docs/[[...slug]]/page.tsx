@@ -71,7 +71,9 @@ export default async function DocPage({ params }: DocPageProps) {
     redirect('/docs/getting-started/introduction');
   }
 
-  const slugPath = resolvedParams.slug.join('/');
+  // TypeScript doesn't know redirect() never returns, so we assert slug is defined
+  const slug = resolvedParams.slug!;
+  const slugPath = slug.join('/');
   const currentPath = '/docs/' + slugPath;
 
   let docData;
@@ -120,7 +122,7 @@ export default async function DocPage({ params }: DocPageProps) {
       <article className="min-w-0 flex-1 max-w-3xl">
         {/* Breadcrumbs */}
         <Breadcrumbs
-          slug={resolvedParams.slug || []}
+          slug={slug}
           className="mb-6"
         />
 

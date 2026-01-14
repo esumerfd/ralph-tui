@@ -6,12 +6,15 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 /** Debug log helper - writes to file to avoid TUI interference */
 function debugLog(msg: string): void {
   if (process.env.RALPH_DEBUG) {
     try {
-      appendFileSync('/tmp/ralph-agent-debug.log', `${new Date().toISOString()} ${msg}\n`);
+      const logPath = join(tmpdir(), 'ralph-agent-debug.log');
+      appendFileSync(logPath, `${new Date().toISOString()} ${msg}\n`);
     } catch {
       // Ignore write errors
     }

@@ -34,6 +34,8 @@ export function DocSearch({ open: controlledOpen, onOpenChange }: DocSearchProps
   const setOpen = onOpenChange ?? setInternalOpen;
 
   // Handle keyboard shortcut
+  // Note: We include `open` in deps because we toggle based on current value.
+  // This is necessary because onOpenChange callback doesn't accept functions.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {

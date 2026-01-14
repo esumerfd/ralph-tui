@@ -111,13 +111,11 @@
    */
   pre[data-theme],
   [data-rehype-pretty-code-figure] pre {
-    background-color: #ffffff !important;
     background: #ffffff !important;
   }
 
   .dark pre[data-theme],
   .dark [data-rehype-pretty-code-figure] pre {
-    background-color: #1a1b26 !important;
     background: #1a1b26 !important;
   }
 

@@ -95,10 +95,10 @@ function buildSearchIndex(): SearchItem[] {
  */
 function getSnippetForPage(title: string, href: string): string {
   const snippets: Record<string, string> = {
-    '/docs': 'AI Agent Loop Orchestrator - automate AI coding tasks with full visibility',
-    '/docs/quick-start': 'Get up and running with Ralph TUI in 5 minutes',
-    '/docs/installation': 'Install Ralph TUI via npm, bun, or from source',
-    '/docs/cli': 'Complete reference for all Ralph TUI CLI commands',
+    '/docs/getting-started/introduction': 'AI Agent Loop Orchestrator - automate AI coding tasks with full visibility',
+    '/docs/getting-started/quick-start': 'Get up and running with Ralph TUI in 5 minutes',
+    '/docs/getting-started/installation': 'Install Ralph TUI via npm, bun, or from source',
+    '/docs/cli/overview': 'Complete reference for all Ralph TUI CLI commands',
     '/docs/cli/run': 'Start the orchestrator loop with task selection and agent execution',
     '/docs/cli/resume': 'Continue from a saved session or recover from interruption',
     '/docs/cli/status': 'View current execution status and task progress',
@@ -106,10 +106,10 @@ function getSnippetForPage(title: string, href: string): string {
     '/docs/cli/setup': 'Initialize Ralph TUI configuration in your project',
     '/docs/cli/create-prd': 'Generate PRD templates for task definition',
     '/docs/cli/convert': 'Convert between task tracker formats',
-    '/docs/configuration': 'Customize Ralph TUI behavior and preferences',
+    '/docs/configuration/overview': 'Customize Ralph TUI behavior and preferences',
     '/docs/configuration/config-file': 'ralph.config.json structure and location',
     '/docs/configuration/options': 'Complete reference of all configuration options',
-    '/docs/plugins': 'Extend Ralph TUI with agent and tracker plugins',
+    '/docs/plugins/overview': 'Extend Ralph TUI with agent and tracker plugins',
     '/docs/plugins/agents/claude': 'Configure Claude Code as your AI agent',
     '/docs/plugins/agents/opencode': 'Configure OpenCode as your AI agent',
     '/docs/plugins/trackers/json': 'Use prd.json files for simple task tracking',
@@ -118,7 +118,7 @@ function getSnippetForPage(title: string, href: string): string {
     '/docs/templates/overview': 'How prompt templates transform tasks into agent instructions',
     '/docs/templates/customization': 'Create custom templates for your workflow',
     '/docs/templates/handlebars': 'Handlebars syntax reference for templates',
-    '/docs/troubleshooting': 'Solutions for common issues and error messages',
+    '/docs/troubleshooting/common-issues': 'Solutions for common issues and error messages',
     '/docs/troubleshooting/debugging': 'Debug techniques and diagnostic tools',
   };
 
@@ -130,7 +130,7 @@ function getSnippetForPage(title: string, href: string): string {
  */
 function getSectionsForPage(href: string): Array<{ title: string; snippet: string }> {
   const sections: Record<string, Array<{ title: string; snippet: string }>> = {
-    '/docs': [
+    '/docs/getting-started/introduction': [
       { title: 'The Autonomous Loop', snippet: 'Continuous execution cycle: select, build, execute, detect, repeat' },
       { title: 'Key Concepts', snippet: 'Task trackers, agent plugins, prompt templates, and completion detection' },
       { title: 'Why Ralph TUI', snippet: 'Eliminate the copy-paste-wait cycle for AI-assisted coding' },
@@ -139,11 +139,11 @@ function getSectionsForPage(href: string): Array<{ title: string; snippet: strin
       { title: 'Options', snippet: 'Command line flags: --max-iterations, --task-tracker, --agent' },
       { title: 'Examples', snippet: 'Common usage patterns and command combinations' },
     ],
-    '/docs/configuration': [
+    '/docs/configuration/overview': [
       { title: 'File Location', snippet: 'Config file discovery and precedence rules' },
       { title: 'Environment Variables', snippet: 'Override config with RALPH_* environment variables' },
     ],
-    '/docs/plugins': [
+    '/docs/plugins/overview': [
       { title: 'Agent Plugins', snippet: 'Connect AI coding assistants like Claude Code and OpenCode' },
       { title: 'Tracker Plugins', snippet: 'Integrate task sources like prd.json and Beads' },
     ],

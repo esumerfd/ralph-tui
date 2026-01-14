@@ -9,7 +9,7 @@ description: Create a new Product Requirements Document (PRD) interactively with
 ralph-tui create-prd [options]
 ```
 
-The `create-prd` command generates a structured PRD through an interactive conversation with an AI agent. It asks about your feature goals, requirements, and quality gates, then produces a PRD markdown file.
+The `create-prd` command generates a structured PRD through an interactive conversation with an AI agent. It asks about your feature goals, requirements, and quality gates, then produces a PRD Markdown file.
 
 <Callout type="tip">
 Use `--chat` mode (recommended) for AI-powered PRD creation. The AI asks contextual questions and generates higher-quality PRDs than the template wizard.
@@ -92,7 +92,7 @@ When you run `create-prd --chat`, the AI guides you through:
     After generating the PRD, you're asked whether to create tasks:
     - **JSON** - Create `prd.json` for the json tracker
     - **Beads** - Create issues in your Beads project
-    - **Skip** - Just save the PRD markdown
+    - **Skip** - Just save the PRD Markdown
   </Step>
 </Steps>
 
@@ -102,7 +102,7 @@ The command creates:
 
 | File | Description |
 |------|-------------|
-| `./tasks/prd-<feature-name>.md` | The PRD markdown document |
+| `./tasks/prd-<feature-name>.md` | The PRD Markdown document |
 | `./prd.json` | Task file (if JSON selected) |
 
 ### PRD Structure

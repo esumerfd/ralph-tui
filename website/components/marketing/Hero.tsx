@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 /**
@@ -107,6 +107,18 @@ const INSTALL_COMMAND = 'bun install -g ralph-tui';
 function InstallCommand() {
   const [copied, setCopied] = useState(false);
 
+  // Track timeout for cleanup
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleCopy = useCallback(async () => {
     try {
       // Try modern clipboard API first
@@ -124,7 +136,11 @@ function InstallCommand() {
         document.body.removeChild(textArea);
       }
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      // Clear any existing timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      timeoutRef.current = setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
     }

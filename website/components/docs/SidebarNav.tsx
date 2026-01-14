@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
@@ -40,6 +40,13 @@ export function SidebarNavItem({ item, depth = 0 }: SidebarNavItemProps) {
   const isActive = item.href === pathname;
   const isExpanded = isPathActive(item, pathname);
   const [isOpen, setIsOpen] = useState(isExpanded);
+
+  // Sync isOpen state when navigation changes
+  useEffect(() => {
+    if (isExpanded) {
+      setIsOpen(true);
+    }
+  }, [isExpanded]);
 
   const toggleOpen = useCallback(() => {
     setIsOpen((prev) => !prev);

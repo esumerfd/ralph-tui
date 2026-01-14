@@ -172,7 +172,15 @@ export function generateTableOfContents(content: string): TocItem[] {
  */
 export async function getDocBySlug(slug: string): Promise<DocData> {
   const docsDirectory = join(process.cwd(), 'content', 'docs');
-  const filePath = join(docsDirectory, `${slug}.mdx`);
+
+  // Prevent path traversal attacks by normalizing and validating the path
+  const normalizedSlug = slug.replace(/\.\./g, '').replace(/^\/+/, '');
+  const filePath = join(docsDirectory, `${normalizedSlug}.mdx`);
+
+  // Ensure the resolved path is still within the docs directory
+  if (!filePath.startsWith(docsDirectory)) {
+    throw new Error('Invalid document path');
+  }
 
   const rawContent = await readFile(filePath, 'utf-8');
   const { frontmatter, content } = extractFrontmatter(rawContent);

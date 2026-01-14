@@ -175,9 +175,9 @@ function Ol({ children, ...props }: React.HTMLAttributes<HTMLOListElement>) {
     <ol
       className={[
         'my-4 ml-4 space-y-2',
-        'list-none counter-reset-[item]',
+        'list-none [counter-reset:item]',
         // Custom numbered list with accent color
-        '[&>li]:relative [&>li]:pl-7 [&>li]:counter-increment-[item]',
+        '[&>li]:relative [&>li]:pl-7 [&>li]:[counter-increment:item]',
         "[&>li]:before:content-[counter(item)'.'] [&>li]:before:absolute [&>li]:before:left-0",
         '[&>li]:before:text-accent-primary [&>li]:before:font-mono [&>li]:before:text-sm',
       ].join(' ')}
