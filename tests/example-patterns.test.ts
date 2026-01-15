@@ -7,10 +7,10 @@
 import { describe, test, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
 
 // Import factories for creating test data
-import { createTrackerTask, createTrackerTasks, createOpenTask, createCompletedTask } from '../factories/tracker-task.js';
-import { createSessionMetadata, createRunningSession, createPausedSession } from '../factories/session-state.js';
-import { createAgentConfig, createClaudeAgentConfig } from '../factories/agent-config.js';
-import { createTrackerConfig, createJsonTrackerConfig } from '../factories/tracker-config.js';
+import { createTrackerTask, createTrackerTasks, createOpenTask, createCompletedTask } from './factories/tracker-task.js';
+import { createSessionMetadata, createRunningSession, createPausedSession } from './factories/session-state.js';
+import { createAgentConfig, createClaudeAgentConfig } from './factories/agent-config.js';
+import { createTrackerConfig, createJsonTrackerConfig } from './factories/tracker-config.js';
 
 // Import mocks for simulating dependencies
 import {
@@ -18,7 +18,7 @@ import {
   createSuccessfulExecution,
   createFailedExecution,
   createDetectResult,
-} from '../mocks/agent-responses.js';
+} from './mocks/agent-responses.js';
 
 /**
  * Example 1: Basic Test Structure

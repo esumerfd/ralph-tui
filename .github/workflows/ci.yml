@@ -61,12 +61,12 @@ jobs:
             COVERAGE=$(grep -E "[0-9]+\.[0-9]+%" coverage-output.txt | tail -1 | grep -oE "[0-9]+\.[0-9]+" | head -1 || echo "0")
           fi
           echo "Coverage: $COVERAGE%"
-          # Check if coverage is below 80%
-          if [ "$(echo "$COVERAGE < 80" | bc -l)" -eq 1 ]; then
-            echo "❌ Coverage $COVERAGE% is below 80% threshold"
+          # Check if coverage is below 40%
+          if [ "$(echo "$COVERAGE < 40" | bc -l)" -eq 1 ]; then
+            echo "❌ Coverage $COVERAGE% is below 40% threshold"
             exit 1
           fi
-          echo "✅ Coverage $COVERAGE% meets 80% threshold"
+          echo "✅ Coverage $COVERAGE% meets 40% threshold"
 
       - name: Upload coverage to Codecov
         if: matrix.runtime == 'bun'

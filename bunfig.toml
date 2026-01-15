@@ -3,7 +3,7 @@
 root = "."
 
 # Coverage settings
-coverage = false
+coverage = true
 coverageDir = "./coverage"
 
 # Timeouts
