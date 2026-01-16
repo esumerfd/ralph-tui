@@ -96,11 +96,15 @@ export class SandboxWrapper {
     }
 
     for (const path of readWritePaths) {
-      bwrapArgs.push('--bind', path, path);
+      if (existsSync(path)) {
+        bwrapArgs.push('--bind', path, path);
+      }
     }
 
     for (const path of readOnlyPaths) {
-      bwrapArgs.push('--ro-bind', path, path);
+      if (existsSync(path)) {
+        bwrapArgs.push('--ro-bind', path, path);
+      }
     }
 
     bwrapArgs.push('--chdir', workDir, '--', command, ...args);
