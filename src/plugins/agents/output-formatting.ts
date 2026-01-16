@@ -201,21 +201,33 @@ export type AgentDisplayEvent =
  */
 export function processAgentEvents(events: AgentDisplayEvent[]): string {
   const parts: string[] = [];
+  let lastType: string | null = null;
 
   for (const event of events) {
     switch (event.type) {
       case 'text':
         if (event.content) {
           parts.push(event.content);
+          lastType = 'text';
         }
         break;
 
-      case 'tool_use':
+      case 'tool_use': {
+        // Add newline before tool call if previous content didn't end with one
+        const needsLeadingNewline = lastType === 'text' &&
+          parts.length > 0 &&
+          !parts[parts.length - 1].endsWith('\n');
+        if (needsLeadingNewline) {
+          parts.push('\n');
+        }
         parts.push(formatToolCall(event.name, event.input as ToolInputFormatters));
+        lastType = 'tool_use';
         break;
+      }
 
       case 'error':
         parts.push('\n' + formatError(event.message) + '\n');
+        lastType = 'error';
         break;
 
       // Intentionally skip these for clean output:

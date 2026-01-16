@@ -293,6 +293,27 @@ describe('processAgentEvents', () => {
     expect(result).toContain('Done!');
   });
 
+  test('adds newline before tool_use when text does not end with newline', () => {
+    const events = [
+      { type: 'text', content: 'Let me check that' },
+      { type: 'tool_use', name: 'read', input: { file_path: '/test.ts' } },
+    ];
+    const result = processAgentEvents(events);
+    // Should have newline between text and tool call
+    expect(result).toContain('Let me check that\n[read]');
+  });
+
+  test('does not add extra newline when text already ends with newline', () => {
+    const events = [
+      { type: 'text', content: 'Let me check that\n' },
+      { type: 'tool_use', name: 'read', input: { file_path: '/test.ts' } },
+    ];
+    const result = processAgentEvents(events);
+    // Should NOT have double newline
+    expect(result).not.toContain('\n\n[read]');
+    expect(result).toContain('that\n[read]');
+  });
+
   test('returns empty string for empty events array', () => {
     const result = processAgentEvents([]);
     expect(result).toBe('');
