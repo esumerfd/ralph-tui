@@ -154,7 +154,9 @@ export class ClaudeAgentPlugin extends BaseAgentPlugin {
   override getSandboxRequirements() {
     return {
       authPaths: ['~/.claude', '~/.anthropic'],
-      binaryPaths: ['/usr/local/bin', '~/.local/bin'],
+      // Include both symlink location and actual binary location
+      // Claude CLI installs as: ~/.local/bin/claude -> ~/.local/share/claude/versions/X.Y.Z
+      binaryPaths: ['/usr/local/bin', '~/.local/bin', '~/.local/share/claude'],
       runtimePaths: ['~/.bun', '~/.nvm'],
       requiresNetwork: true,
     };
