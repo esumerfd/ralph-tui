@@ -455,22 +455,38 @@ export function RunApp({
 
   // Regenerate prompt preview when selected task changes (if in prompt view mode)
   // This keeps the prompt preview in sync with the currently selected task
-  const selectedTaskId = displayedTasks[selectedIndex]?.id;
+  // Uses selectedIndex and displayedTasks directly to ensure fresh data on each effect run
   useEffect(() => {
-    if (detailsViewMode === 'prompt' && selectedTaskId) {
-      void (async () => {
-        setPromptPreview('Generating prompt preview...');
-        const result = await engine.generatePromptPreview(selectedTaskId);
-        if (result.success) {
-          setPromptPreview(result.prompt);
-          setTemplateSource(result.source);
-        } else {
-          setPromptPreview(`Error: ${result.error}`);
-          setTemplateSource(undefined);
-        }
-      })();
+    const taskId = displayedTasks[selectedIndex]?.id;
+    if (detailsViewMode !== 'prompt' || !taskId) {
+      return;
     }
-  }, [detailsViewMode, selectedTaskId, engine]);
+
+    // Track if this effect has been superseded by a newer one
+    let cancelled = false;
+
+    setPromptPreview('Generating prompt preview...');
+    setTemplateSource(undefined);
+
+    void (async () => {
+      const result = await engine.generatePromptPreview(taskId);
+      // Don't update state if this effect was cancelled (user changed task again)
+      if (cancelled) return;
+
+      if (result.success) {
+        setPromptPreview(result.prompt);
+        setTemplateSource(result.source);
+      } else {
+        setPromptPreview(`Error: ${result.error}`);
+        setTemplateSource(undefined);
+      }
+    })();
+
+    // Cleanup: mark this effect as cancelled if it re-runs before completing
+    return () => {
+      cancelled = true;
+    };
+  }, [detailsViewMode, displayedTasks, selectedIndex, engine]);
 
   // Update output parser when agent changes (parser was created before config was loaded)
   useEffect(() => {
