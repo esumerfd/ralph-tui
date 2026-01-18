@@ -190,6 +190,46 @@ describe('SubagentTreePanel selection logic', () => {
   });
 });
 
+describe('Task tool name detection', () => {
+  /**
+   * Check if a tool name matches "Task" (case-insensitive).
+   * Mirrors the isTaskToolInvocation logic in parser.ts.
+   */
+  function isTaskTool(toolName: string | undefined | null): boolean {
+    return typeof toolName === 'string' && toolName.toLowerCase() === 'task';
+  }
+
+  test('detects "Task" (Claude format)', () => {
+    expect(isTaskTool('Task')).toBe(true);
+  });
+
+  test('detects "task" (OpenCode format)', () => {
+    expect(isTaskTool('task')).toBe(true);
+  });
+
+  test('detects "TASK" (uppercase)', () => {
+    expect(isTaskTool('TASK')).toBe(true);
+  });
+
+  test('detects "TaSk" (mixed case)', () => {
+    expect(isTaskTool('TaSk')).toBe(true);
+  });
+
+  test('rejects undefined', () => {
+    expect(isTaskTool(undefined)).toBe(false);
+  });
+
+  test('rejects null', () => {
+    expect(isTaskTool(null)).toBe(false);
+  });
+
+  test('rejects other tool names', () => {
+    expect(isTaskTool('Bash')).toBe(false);
+    expect(isTaskTool('Read')).toBe(false);
+    expect(isTaskTool('Write')).toBe(false);
+  });
+});
+
 describe('SubagentTreePanel navigation', () => {
   interface SubagentTreeNode {
     state: { id: string };

@@ -118,10 +118,12 @@ export class SubagentTraceParser {
 
   /**
    * Check if a message represents a Task tool invocation.
+   * Handles both "Task" (Claude) and "task" (OpenCode) tool names.
    */
   private isTaskToolInvocation(message: ClaudeJsonlMessage): boolean {
-    // Task tool invocations appear as tool use with name "Task"
-    if (message.tool?.name === 'Task') {
+    // Task tool invocations appear as tool use with name "Task" or "task"
+    // Use case-insensitive comparison to support all agents
+    if (message.tool?.name?.toLowerCase() === 'task') {
       return true;
     }
 
@@ -143,7 +145,8 @@ export class SubagentTraceParser {
           'type' in block &&
           block.type === 'tool_use' &&
           'name' in block &&
-          block.name === 'Task'
+          typeof block.name === 'string' &&
+          block.name.toLowerCase() === 'task'
         ) {
           return true;
         }
@@ -201,7 +204,8 @@ export class SubagentTraceParser {
             'type' in block &&
             block.type === 'tool_use' &&
             'name' in block &&
-            block.name === 'Task'
+            typeof block.name === 'string' &&
+            block.name.toLowerCase() === 'task'
           ) {
             const toolBlock = block as Record<string, unknown>;
             toolInput = toolBlock.input as Record<string, unknown>;
