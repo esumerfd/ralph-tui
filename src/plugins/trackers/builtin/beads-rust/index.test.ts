@@ -13,7 +13,10 @@ let mockSpawnExitCode = 0;
 let mockSpawnStdout = '';
 let mockSpawnStderr = '';
 
-function createMockChildProcess() {
+type MockSpawnResponse = { exitCode: number; stdout?: string; stderr?: string };
+let mockSpawnResponses: MockSpawnResponse[] = [];
+
+function createMockChildProcess(response?: MockSpawnResponse) {
   const proc = new EventEmitter() as EventEmitter & {
     stdout: EventEmitter;
     stderr: EventEmitter;
@@ -21,10 +24,14 @@ function createMockChildProcess() {
   proc.stdout = new EventEmitter();
   proc.stderr = new EventEmitter();
 
+  const stdout = response?.stdout ?? mockSpawnStdout;
+  const stderr = response?.stderr ?? mockSpawnStderr;
+  const exitCode = response?.exitCode ?? mockSpawnExitCode;
+
   setTimeout(() => {
-    if (mockSpawnStdout) proc.stdout.emit('data', Buffer.from(mockSpawnStdout));
-    if (mockSpawnStderr) proc.stderr.emit('data', Buffer.from(mockSpawnStderr));
-    proc.emit('close', mockSpawnExitCode);
+    if (stdout) proc.stdout.emit('data', Buffer.from(stdout));
+    if (stderr) proc.stderr.emit('data', Buffer.from(stderr));
+    proc.emit('close', exitCode);
   }, 0);
 
   return proc;
@@ -33,7 +40,8 @@ function createMockChildProcess() {
 mock.module('node:child_process', () => ({
   spawn: (cmd: string, args: string[]) => {
     mockSpawnArgs.push({ cmd, args });
-    return createMockChildProcess();
+    const response = mockSpawnResponses.shift();
+    return createMockChildProcess(response);
   },
 }));
 
@@ -57,6 +65,7 @@ describe('BeadsRustTrackerPlugin', () => {
     mockSpawnExitCode = 0;
     mockSpawnStdout = '';
     mockSpawnStderr = '';
+    mockSpawnResponses = [];
   });
 
   test('reports unavailable when .beads directory is missing', async () => {
@@ -72,8 +81,10 @@ describe('BeadsRustTrackerPlugin', () => {
   });
 
   test('reports unavailable when br --version fails', async () => {
-    mockSpawnExitCode = 1;
-    mockSpawnStderr = 'br: command not found';
+    mockSpawnResponses = [
+      { exitCode: 1, stderr: 'br: command not found' },
+      { exitCode: 1, stderr: 'br: command not found' },
+    ];
 
     const plugin = new BeadsRustTrackerPlugin();
     await plugin.initialize({ workingDir: '/test' });
@@ -85,7 +96,10 @@ describe('BeadsRustTrackerPlugin', () => {
   });
 
   test('extracts version from br --version output', async () => {
-    mockSpawnStdout = 'br version 0.4.1\n';
+    mockSpawnResponses = [
+      { exitCode: 0, stdout: 'br version 0.4.1\n' },
+      { exitCode: 0, stdout: 'br version 0.4.1\n' },
+    ];
 
     const plugin = new BeadsRustTrackerPlugin();
     await plugin.initialize({ workingDir: '/test' });
@@ -94,5 +108,116 @@ describe('BeadsRustTrackerPlugin', () => {
     expect(result.available).toBe(true);
     expect(result.brVersion).toBe('0.4.1');
     expect(result.brPath).toBe('br');
+  });
+
+  describe('getTasks', () => {
+    test('executes br list --json --all', async () => {
+      mockSpawnResponses = [
+        { exitCode: 0, stdout: 'br version 0.4.1\n' },
+        {
+          exitCode: 0,
+          stdout: JSON.stringify([
+            { id: 't1', title: 'Task 1', status: 'open', priority: 2 },
+          ]),
+        },
+      ];
+
+      const plugin = new BeadsRustTrackerPlugin();
+      await plugin.initialize({ workingDir: '/test' });
+      mockSpawnArgs = [];
+
+      await plugin.getTasks();
+
+      expect(mockSpawnArgs.length).toBe(1);
+      expect(mockSpawnArgs[0]?.cmd).toBe('br');
+      expect(mockSpawnArgs[0]?.args).toEqual(['list', '--json', '--all']);
+    });
+
+    test('supports --parent filtering', async () => {
+      mockSpawnResponses = [
+        { exitCode: 0, stdout: 'br version 0.4.1\n' },
+        {
+          exitCode: 0,
+          stdout: JSON.stringify([
+            { id: 'epic.1', title: 'Child', status: 'open', priority: 0 },
+          ]),
+        },
+      ];
+
+      const plugin = new BeadsRustTrackerPlugin();
+      await plugin.initialize({ workingDir: '/test' });
+      mockSpawnArgs = [];
+
+      await plugin.getTasks({ parentId: 'epic' });
+
+      expect(mockSpawnArgs[0]?.args).toEqual([
+        'list',
+        '--json',
+        '--all',
+        '--parent',
+        'epic',
+      ]);
+    });
+
+    test('supports --label filtering', async () => {
+      mockSpawnResponses = [
+        { exitCode: 0, stdout: 'br version 0.4.1\n' },
+        {
+          exitCode: 0,
+          stdout: JSON.stringify([
+            {
+              id: 't1',
+              title: 'Task 1',
+              status: 'open',
+              priority: 0,
+              labels: ['a', 'b'],
+            },
+          ]),
+        },
+      ];
+
+      const plugin = new BeadsRustTrackerPlugin();
+      await plugin.initialize({ workingDir: '/test' });
+      mockSpawnArgs = [];
+
+      await plugin.getTasks({ labels: ['a', 'b'] });
+
+      expect(mockSpawnArgs[0]?.args).toEqual([
+        'list',
+        '--json',
+        '--all',
+        '--label',
+        'a,b',
+      ]);
+    });
+
+    test('supports --status filtering and maps status/priority', async () => {
+      mockSpawnResponses = [
+        { exitCode: 0, stdout: 'br version 0.4.1\n' },
+        {
+          exitCode: 0,
+          stdout: JSON.stringify([
+            { id: 't1', title: 'Done', status: 'closed', priority: 99 },
+          ]),
+        },
+      ];
+
+      const plugin = new BeadsRustTrackerPlugin();
+      await plugin.initialize({ workingDir: '/test' });
+      mockSpawnArgs = [];
+
+      const tasks = await plugin.getTasks({ status: 'completed' });
+
+      expect(mockSpawnArgs[0]?.args).toEqual([
+        'list',
+        '--json',
+        '--all',
+        '--status',
+        'closed',
+      ]);
+
+      expect(tasks[0]?.status).toBe('completed');
+      expect(tasks[0]?.priority).toBe(4);
+    });
   });
 });

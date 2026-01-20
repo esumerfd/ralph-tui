@@ -10,11 +10,33 @@ import { join } from 'node:path';
 import { BaseTrackerPlugin } from '../../base.js';
 import type {
   TaskCompletionResult,
+  TaskFilter,
+  TaskPriority,
   TrackerPluginFactory,
   TrackerPluginMeta,
   TrackerTask,
   TrackerTaskStatus,
 } from '../../types.js';
+
+/**
+ * Raw task structure from br list --json output.
+ *
+ * Note: br is expected to be broadly compatible with bd output, but we only
+ * rely on a small subset of fields.
+ */
+interface BrTaskJson {
+  id: string;
+  title: string;
+  description?: string;
+  status: string;
+  priority: number;
+  issue_type?: string;
+  owner?: string;
+  created_at?: string;
+  updated_at?: string;
+  labels?: string[];
+  parent?: string;
+}
 
 /**
  * Result of detect() operation.
@@ -77,6 +99,71 @@ function extractBrVersion(stdout: string): string {
 }
 
 /**
+ * Convert br status to TrackerTaskStatus.
+ */
+function mapStatus(brStatus: string): TrackerTaskStatus {
+  const statusMap: Record<string, TrackerTaskStatus> = {
+    open: 'open',
+    in_progress: 'in_progress',
+    closed: 'completed',
+    cancelled: 'cancelled',
+  };
+
+  return statusMap[brStatus] ?? 'open';
+}
+
+/**
+ * Convert TrackerTaskStatus back to br status.
+ */
+function mapStatusToBr(status: TrackerTaskStatus): string {
+  const statusMap: Record<TrackerTaskStatus, string> = {
+    open: 'open',
+    in_progress: 'in_progress',
+    completed: 'closed',
+    cancelled: 'cancelled',
+    // br doesn't have a dedicated blocked status; keep as open
+    blocked: 'open',
+  };
+
+  return statusMap[status] ?? 'open';
+}
+
+/**
+ * Convert br priority (0-4) to TaskPriority.
+ */
+function mapPriority(priority: number): TaskPriority {
+  const clamped = Math.max(0, Math.min(4, priority));
+  return clamped as TaskPriority;
+}
+
+/**
+ * Convert a BrTaskJson object to TrackerTask.
+ */
+function brTaskToTask(task: BrTaskJson): TrackerTask {
+  // Infer parentId from task ID if not provided.
+  // e.g., "ralph-tui-45r.37" -> parent is "ralph-tui-45r"
+  let parentId = task.parent;
+  if (!parentId && task.id.includes('.')) {
+    const lastDotIndex = task.id.lastIndexOf('.');
+    parentId = task.id.substring(0, lastDotIndex);
+  }
+
+  return {
+    id: task.id,
+    title: task.title,
+    status: mapStatus(task.status),
+    priority: mapPriority(task.priority),
+    description: task.description,
+    labels: task.labels,
+    type: task.issue_type,
+    parentId,
+    assignee: task.owner,
+    createdAt: task.created_at,
+    updatedAt: task.updated_at,
+  };
+}
+
+/**
  * Beads-rust tracker plugin implementation.
  *
  * Note: This initial implementation focuses on detection only.
@@ -96,8 +183,26 @@ export class BeadsRustTrackerPlugin extends BaseTrackerPlugin {
   /** Last detected br version (if available). */
   brVersion: string | undefined;
 
+  private workingDir: string = process.cwd();
+  private epicId: string = '';
+  protected labels: string[] = [];
+
   override async initialize(config: Record<string, unknown>): Promise<void> {
     await super.initialize(config);
+
+    if (typeof config.workingDir === 'string') {
+      this.workingDir = config.workingDir;
+    }
+
+    if (typeof config.epicId === 'string') {
+      this.epicId = config.epicId;
+    }
+
+    if (typeof config.labels === 'string') {
+      this.labels = config.labels.split(',').map((l) => l.trim()).filter(Boolean);
+    } else if (Array.isArray(config.labels)) {
+      this.labels = config.labels.filter((l): l is string => typeof l === 'string');
+    }
 
     // Default readiness to false until we can detect beads-rust.
     const detection = await this.detect();
@@ -155,9 +260,52 @@ export class BeadsRustTrackerPlugin extends BaseTrackerPlugin {
     return this.ready;
   }
 
-  async getTasks(): Promise<TrackerTask[]> {
-    // Implemented in US-2.
-    return [];
+  override async getTasks(filter?: TaskFilter): Promise<TrackerTask[]> {
+    // Always include closed tasks; UI controls visibility.
+    const args = ['list', '--json', '--all'];
+
+    const parentId = filter?.parentId ?? this.epicId;
+    if (parentId) {
+      args.push('--parent', parentId);
+    }
+
+    const labelsToFilter =
+      filter?.labels && filter.labels.length > 0 ? filter.labels : this.labels;
+    if (labelsToFilter.length > 0) {
+      args.push('--label', labelsToFilter.join(','));
+    }
+
+    if (filter?.status && !Array.isArray(filter.status)) {
+      args.push('--status', mapStatusToBr(filter.status));
+    }
+
+    const { stdout, exitCode, stderr } = await execBr(args, this.workingDir);
+
+    if (exitCode !== 0) {
+      console.error('br list failed:', stderr);
+      return [];
+    }
+
+    let tasksJson: BrTaskJson[];
+    try {
+      tasksJson = JSON.parse(stdout) as BrTaskJson[];
+    } catch (err) {
+      console.error('Failed to parse br list output:', err);
+      return [];
+    }
+
+    let tasks = tasksJson.map(brTaskToTask);
+
+    // If we already scoped to a parent via --parent, remove it from in-memory
+    // filtering to avoid relying on parentId presence in JSON output.
+    const filterWithoutParent = parentId
+      ? filter
+        ? { ...filter, parentId: undefined }
+        : undefined
+      : filter;
+    tasks = this.filterTasks(tasks, filterWithoutParent);
+
+    return tasks;
   }
 
   async completeTask(id: string): Promise<TaskCompletionResult> {
