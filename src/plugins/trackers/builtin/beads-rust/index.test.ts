@@ -464,4 +464,42 @@ describe('BeadsRustTrackerPlugin', () => {
       ]);
     });
   });
+
+  describe('sync', () => {
+    test('executes br sync --flush-only and returns success', async () => {
+      mockSpawnResponses = [{ exitCode: 0, stdout: 'br version 0.4.1\n' }];
+
+      const plugin = new BeadsRustTrackerPlugin();
+      await plugin.initialize({ workingDir: '/test' });
+
+      mockSpawnArgs = [];
+      mockSpawnResponses = [{ exitCode: 0, stdout: 'flushed\n' }];
+
+      const result = await plugin.sync();
+
+      expect(result.success).toBe(true);
+      expect(result.syncedAt).toBeTruthy();
+      expect(mockSpawnArgs.length).toBe(1);
+      expect(mockSpawnArgs[0]?.cmd).toBe('br');
+      expect(mockSpawnArgs[0]?.args).toEqual(['sync', '--flush-only']);
+    });
+
+    test('returns failure result when br sync --flush-only fails', async () => {
+      mockSpawnResponses = [{ exitCode: 0, stdout: 'br version 0.4.1\n' }];
+
+      const plugin = new BeadsRustTrackerPlugin();
+      await plugin.initialize({ workingDir: '/test' });
+
+      mockSpawnArgs = [];
+      mockSpawnResponses = [{ exitCode: 1, stderr: 'write failed' }];
+
+      const result = await plugin.sync();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('write failed');
+      expect(mockSpawnArgs.length).toBe(1);
+      expect(mockSpawnArgs[0]?.cmd).toBe('br');
+      expect(mockSpawnArgs[0]?.args).toEqual(['sync', '--flush-only']);
+    });
+  });
 });

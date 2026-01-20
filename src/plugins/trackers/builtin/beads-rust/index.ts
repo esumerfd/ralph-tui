@@ -9,6 +9,7 @@ import { access, constants } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BaseTrackerPlugin } from '../../base.js';
 import type {
+  SyncResult,
   TaskCompletionResult,
   TaskFilter,
   TaskPriority,
@@ -424,6 +425,30 @@ export class BeadsRustTrackerPlugin extends BaseTrackerPlugin {
 
     // Fetch and return the updated task
     return this.getTask(id);
+  }
+
+  override async sync(): Promise<SyncResult> {
+    // Export tracker DB state to JSONL. This is intentionally flush-only and
+    // does not run any git operations.
+    const { exitCode, stderr, stdout } = await execBr(
+      ['sync', '--flush-only'],
+      this.workingDir
+    );
+
+    if (exitCode !== 0) {
+      return {
+        success: false,
+        message: 'Beads-rust sync failed',
+        error: stderr || stdout,
+        syncedAt: new Date().toISOString(),
+      };
+    }
+
+    return {
+      success: true,
+      message: 'Beads-rust tracker data flushed to JSONL',
+      syncedAt: new Date().toISOString(),
+    };
   }
 }
 
