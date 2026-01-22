@@ -223,6 +223,16 @@ export async function resolveSession(args: ResumeArgs): Promise<{
       return null;
     }
 
+    // Validate the session file still exists at the entry's cwd
+    const sessionFileExists = await hasPersistedSession(entry.cwd);
+    if (!sessionFileExists) {
+      console.error(`Session '${args.sessionId}' found in registry, but session file is missing.`);
+      console.error(`Expected session file at: ${entry.cwd}/.ralph-tui/session.json`);
+      console.error('');
+      console.error('The session file may have been deleted. Run --cleanup to update the registry.');
+      return null;
+    }
+
     return { cwd: entry.cwd, registryEntry: entry };
   }
 

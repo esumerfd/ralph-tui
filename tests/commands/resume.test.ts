@@ -405,6 +405,7 @@ describe('resume command', () => {
 
     test('resolves session by exact ID match', async () => {
       getSessionByIdSpy = spyOn(sessionModule, 'getSessionById').mockResolvedValue(mockEntry);
+      hasPersistedSessionSpy = spyOn(sessionModule, 'hasPersistedSession').mockResolvedValue(true);
 
       const args: ResumeArgs = {
         sessionId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
@@ -425,6 +426,7 @@ describe('resume command', () => {
     test('resolves session by prefix match when single match', async () => {
       getSessionByIdSpy = spyOn(sessionModule, 'getSessionById').mockResolvedValue(null);
       findSessionsByPrefixSpy = spyOn(sessionModule, 'findSessionsByPrefix').mockResolvedValue([mockEntry]);
+      hasPersistedSessionSpy = spyOn(sessionModule, 'hasPersistedSession').mockResolvedValue(true);
 
       const args: ResumeArgs = {
         sessionId: 'a1b2c3d4',
@@ -439,6 +441,28 @@ describe('resume command', () => {
 
       expect(result).not.toBeNull();
       expect(result!.cwd).toBe('/home/user/project');
+    });
+
+    test('returns null when session found in registry but file is missing', async () => {
+      getSessionByIdSpy = spyOn(sessionModule, 'getSessionById').mockResolvedValue(mockEntry);
+      hasPersistedSessionSpy = spyOn(sessionModule, 'hasPersistedSession').mockResolvedValue(false);
+
+      const args: ResumeArgs = {
+        sessionId: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+        cwd: process.cwd(),
+        headless: false,
+        force: false,
+        list: false,
+        cleanup: false,
+      };
+
+      const result = await resolveSession(args);
+
+      expect(result).toBeNull();
+      const output = errors.join('\n');
+      expect(output).toContain("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+      expect(output).toContain('session file is missing');
+      expect(output).toContain('--cleanup');
     });
 
     test('returns null when multiple sessions match prefix', async () => {
