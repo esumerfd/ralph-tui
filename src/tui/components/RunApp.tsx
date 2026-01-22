@@ -284,10 +284,13 @@ function convertTasksWithDependencyStatus(trackerTasks: TrackerTask[]): TaskItem
   return trackerTasks.map((task) => {
     const baseItem = trackerTaskToTaskItem(task);
 
-    // Add the computed 'blocks' field (tasks that depend on this one)
-    const blocksIds = blocksMap.get(task.id);
-    if (blocksIds && blocksIds.length > 0) {
-      baseItem.blocks = blocksIds;
+    // Add the computed 'blocks' field only if tracker didn't provide it
+    // (beads trackers provide this from CLI, JSON tracker needs computation)
+    if (!baseItem.blocks || baseItem.blocks.length === 0) {
+      const blocksIds = blocksMap.get(task.id);
+      if (blocksIds && blocksIds.length > 0) {
+        baseItem.blocks = blocksIds;
+      }
     }
 
     // Only check dependencies for open/pending tasks
