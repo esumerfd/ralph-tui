@@ -258,6 +258,7 @@ function recalculateDependencyStatus(tasks: TaskItem[]): TaskItem[] {
  * Convert all tasks and determine actionable/blocked status based on dependencies.
  * A task is 'actionable' if it has no dependencies OR all its dependencies are completed/closed.
  * A task is 'blocked' if it has any dependency that is NOT completed/closed.
+ * Also computes the 'blocks' field (inverse of dependsOn) for each task.
  */
 function convertTasksWithDependencyStatus(trackerTasks: TrackerTask[]): TaskItem[] {
   // First, create a map of task IDs to their status and title for quick lookup
@@ -266,9 +267,28 @@ function convertTasksWithDependencyStatus(trackerTasks: TrackerTask[]): TaskItem
     taskMap.set(task.id, { status: task.status, title: task.title });
   }
 
+  // Build the inverse relationship: which tasks does each task block?
+  // If task A dependsOn task B, then B blocks A
+  const blocksMap = new Map<string, string[]>();
+  for (const task of trackerTasks) {
+    if (task.dependsOn && task.dependsOn.length > 0) {
+      for (const depId of task.dependsOn) {
+        const existing = blocksMap.get(depId) || [];
+        existing.push(task.id);
+        blocksMap.set(depId, existing);
+      }
+    }
+  }
+
   // Convert each task, determining actionable/blocked based on dependencies
   return trackerTasks.map((task) => {
     const baseItem = trackerTaskToTaskItem(task);
+
+    // Add the computed 'blocks' field (tasks that depend on this one)
+    const blocksIds = blocksMap.get(task.id);
+    if (blocksIds && blocksIds.length > 0) {
+      baseItem.blocks = blocksIds;
+    }
 
     // Only check dependencies for open/pending tasks
     if (baseItem.status !== 'pending') {
