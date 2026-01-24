@@ -116,6 +116,9 @@ ralph-tui run --headless
 # Run agent in isolated sandbox (bwrap on Linux, sandbox-exec on macOS)
 # Requires bwrap to be installed and on PATH (Linux) or uses built-in sandbox-exec (macOS)
 ralph-tui run --sandbox
+
+# Use a custom color theme
+ralph-tui run --theme ./assets/themes/high-contrast-theme.json
 ```
 
 ### Create PRD Options
@@ -165,6 +168,73 @@ ralph-tui create-prd --output ./docs
 - Remote connection info (when viewing remote tabs)
 
 See the [full CLI reference](https://ralph-tui.com/docs/cli/overview) for all options.
+
+### Custom Themes
+
+Ralph TUI supports custom color themes via the `--theme` option. Load any JSON theme file to customize the TUI appearance:
+
+```bash
+ralph-tui run --theme ./assets/themes/high-contrast-theme.json
+```
+
+![Custom Theme Example](docs/images/theme-example.png)
+
+**Theme file structure:**
+
+```json
+{
+  "bg": {
+    "primary": "#0a0a0f",
+    "secondary": "#12121a",
+    "tertiary": "#1a1a24",
+    "highlight": "#22222e"
+  },
+  "fg": {
+    "primary": "#ffffff",
+    "secondary": "#f0f0f0",
+    "muted": "#b0b0c0",
+    "dim": "#808090"
+  },
+  "status": {
+    "success": "#00ff66",
+    "warning": "#ffdd00",
+    "error": "#ff4477",
+    "info": "#44ddff"
+  },
+  "task": {
+    "done": "#00ff66",
+    "active": "#00ff66",
+    "actionable": "#66ff00",
+    "pending": "#9090a0",
+    "blocked": "#ff4477",
+    "error": "#ff2255",
+    "closed": "#606070"
+  },
+  "accent": {
+    "primary": "#44ddff",
+    "secondary": "#ff44dd",
+    "tertiary": "#ffff44"
+  },
+  "border": {
+    "normal": "#3a3a4a",
+    "active": "#44ddff",
+    "muted": "#2a2a3a"
+  }
+}
+```
+
+**Partial themes:** You can specify only the colors you want to override. Missing values fall back to the default Tokyo Night theme.
+
+```json
+{
+  "bg": { "primary": "#000000" },
+  "fg": { "primary": "#ffffff" }
+}
+```
+
+Bundled themes are available in `assets/themes/`:
+- `bright-theme.json` - Vibrant colors with purple backgrounds
+- `high-contrast-theme.json` - High contrast with near-black backgrounds
 
 ### Using Skills Directly in Your Agent
 

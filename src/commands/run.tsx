@@ -69,6 +69,7 @@ import {
   type RemoteServer,
   type InstanceTab,
 } from '../remote/index.js';
+import { initializeTheme } from '../tui/theme.js';
 import type { ConnectionToastMessage } from '../tui/components/Toast.js';
 import { spawnSync } from 'node:child_process';
 import { basename } from 'node:path';
@@ -322,6 +323,13 @@ export function parseRunArgs(args: string[]): ExtendedRuntimeOptions {
       case '--rotate-token':
         options.rotateToken = true;
         break;
+
+      case '--theme':
+        if (nextArg && !nextArg.startsWith('-')) {
+          options.themePath = nextArg;
+          i++;
+        }
+        break;
     }
   }
 
@@ -347,6 +355,7 @@ Options:
   --prompt <path>     Custom prompt file (default: based on tracker mode)
   --output-dir <path> Directory for iteration logs (default: .ralph-tui/iterations)
   --progress-file <path> Progress file for cross-iteration context (default: .ralph-tui/progress.md)
+  --theme <path>      Path to custom JSON theme file (absolute or relative to cwd)
   --iterations <n>    Maximum iterations (0 = unlimited)
   --delay <ms>        Delay between iterations in milliseconds
   --cwd <path>        Working directory
@@ -1516,6 +1525,18 @@ export async function executeRunCommand(args: string[]): Promise<void> {
   }
 
   console.log('Initializing Ralph TUI...');
+
+  // Initialize theme before any TUI components render
+  // This must happen early to ensure colors are available when components load
+  if (options.themePath) {
+    try {
+      await initializeTheme(options.themePath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`\nTheme loading failed: ${message}`);
+      process.exit(1);
+    }
+  }
 
   // Initialize plugins
   await initializePlugins();
