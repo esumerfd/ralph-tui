@@ -83,8 +83,8 @@ type FocusedPane = 'output' | 'subagentTree';
  * Props for the RunApp component
  */
 export interface RunAppProps {
-  /** The execution engine instance */
-  engine: ExecutionEngine;
+  /** The execution engine instance (optional in parallel mode where workers have their own engines) */
+  engine?: ExecutionEngine;
   /** Current working directory for loading historical logs */
   cwd: string;
   /** Callback when quit is requested */
@@ -444,9 +444,12 @@ export function RunApp({
   const [status, setStatus] = useState<RalphStatus>(onStart ? 'ready' : 'running');
   const [currentIteration, setCurrentIteration] = useState(0);
   const [maxIterations, setMaxIterations] = useState(() => {
-    // Initialize from engine if available
-    const info = engine.getIterationInfo();
-    return info.maxIterations;
+    // Initialize from engine if available (engine is absent in parallel mode)
+    if (engine) {
+      const info = engine.getIterationInfo();
+      return info.maxIterations;
+    }
+    return 0;
   });
   const [currentOutput, setCurrentOutput] = useState('');
   const [currentSegments, setCurrentSegments] = useState<FormattedSegment[]>([]);
@@ -901,7 +904,7 @@ export function RunApp({
           setPromptPreview(`Error: ${result.error}`);
           setTemplateSource(undefined);
         }
-      } else {
+      } else if (engine) {
         const result = await engine.generatePromptPreview(effectiveTaskId);
         // Don't update state if this effect was cancelled (user changed task again)
         if (cancelled) return;
@@ -977,8 +980,9 @@ export function RunApp({
     }
   }, [agentName]);
 
-  // Subscribe to engine events
+  // Subscribe to engine events (engine is absent in parallel mode)
   useEffect(() => {
+    if (!engine) return;
     const unsubscribe = engine.on((event: EngineEvent) => {
       switch (event.type) {
         case 'engine:started':
@@ -1132,7 +1136,7 @@ export function RunApp({
           // Always refresh subagent tree from engine (subagent events are processed in engine).
           // This decouples data collection from display preferences - the subagentDetailLevel
           // only affects how much detail to show inline, not whether to track subagents.
-          setSubagentTree(engine.getSubagentTree());
+          setSubagentTree(engine!.getSubagentTree());
           break;
 
         case 'agent:switched':
@@ -1200,8 +1204,9 @@ export function RunApp({
     return () => clearInterval(interval);
   }, [status]);
 
-  // Get initial state from engine
+  // Get initial state from engine (engine is absent in parallel mode)
   useEffect(() => {
+    if (!engine) return;
     const state = engine.getState();
     setCurrentIteration(state.currentIteration);
     // Run initial output through parser (engine stores raw output)
@@ -1449,8 +1454,8 @@ export function RunApp({
               setRemoteStatus('selecting');
               instanceManager.sendRemoteCommand('resume');
             }
-          } else {
-            // Local engine control
+          } else if (engine) {
+            // Local engine control (engine absent in parallel mode)
             if (status === 'running' || status === 'executing' || status === 'selecting') {
               engine.pause();
               setStatus('pausing');
@@ -1525,8 +1530,8 @@ export function RunApp({
             if (displayStatus === 'stopped' || displayStatus === 'idle' || displayStatus === 'ready') {
               instanceManager.sendRemoteCommand('continue');
             }
-          } else {
-            // Local engine control
+          } else if (engine) {
+            // Local engine control (engine absent in parallel mode)
             if (status === 'ready' && onStart) {
               // First start - use onStart callback
               setStatus('running');
@@ -1556,7 +1561,7 @@ export function RunApp({
           // Refresh task list from tracker
           if (isViewingRemote && instanceManager) {
             instanceManager.sendRemoteCommand('refreshTasks');
-          } else {
+          } else if (engine) {
             engine.refreshTasks();
           }
           break;
@@ -1578,8 +1583,8 @@ export function RunApp({
               } else {
                 instanceManager.removeRemoteIterations(10);
               }
-            } else {
-              // Local engine control
+            } else if (engine) {
+              // Local engine control (engine absent in parallel mode)
               if (isPlus) {
                 engine.addIterations(10).then((shouldContinue) => {
                   if (shouldContinue || status === 'complete') {
@@ -2096,14 +2101,14 @@ export function RunApp({
       return `[Subagent ${selectedSubagentId}]\nNo output available for remote instance`;
     }
 
-    // Local instance: get subagent-specific output from engine
-    const subagentOutput = engine.getSubagentOutput(selectedSubagentId);
+    // Local instance: get subagent-specific output from engine (engine absent in parallel mode)
+    const subagentOutput = engine?.getSubagentOutput(selectedSubagentId);
 
     // Build rich output based on subagent state
     // We have: metadata, prompt, result, child subagents, timing
     if (subagentNode) {
       const { state } = subagentNode;
-      const details = engine.getSubagentDetails(selectedSubagentId);
+      const details = engine?.getSubagentDetails(selectedSubagentId);
 
       // Build header
       const lines: string[] = [];
