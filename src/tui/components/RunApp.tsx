@@ -1419,7 +1419,7 @@ export function RunApp({
           // Start/continue execution - 's' always means "keep going"
           if (isViewingRemote && instanceManager) {
             // Route to remote instance - send continue command
-            if (displayStatus === 'stopped' || displayStatus === 'idle' || displayStatus === 'ready') {
+            if (displayStatus === 'stopped' || displayStatus === 'idle' || displayStatus === 'ready' || displayStatus === 'complete') {
               instanceManager.sendRemoteCommand('continue');
             }
           } else {
@@ -1428,8 +1428,8 @@ export function RunApp({
               // First start - use onStart callback
               setStatus('running');
               onStart();
-            } else if (status === 'stopped' || status === 'idle') {
-              // Continue after stop - use engine.continueExecution()
+            } else if (status === 'stopped' || status === 'idle' || status === 'complete') {
+              // Continue after stop (or after completion with new tasks) - use engine.continueExecution()
               if (currentIteration >= maxIterations) {
                 // At max iterations, add one more then continue
                 engine.addIterations(1).then((shouldContinue) => {
