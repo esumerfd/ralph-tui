@@ -468,8 +468,16 @@ describe('run command', () => {
         expect(isSessionComplete(null, 0, 5)).toBe(false);
       });
 
+      test('returns false when 1 task completed out of 5', () => {
+        expect(isSessionComplete(null, 1, 5)).toBe(false);
+      });
+
       test('returns false when 3 tasks completed out of 5', () => {
         expect(isSessionComplete(null, 3, 5)).toBe(false);
+      });
+
+      test('returns false when 4 tasks completed out of 5 (one remaining)', () => {
+        expect(isSessionComplete(null, 4, 5)).toBe(false);
       });
 
       test('returns false when 108 tasks completed out of 130', () => {
@@ -489,6 +497,20 @@ describe('run command', () => {
       test('returns true when 0 tasks out of 0 (empty project)', () => {
         // Edge case: no tasks means nothing to do, so complete
         expect(isSessionComplete(null, 0, 0)).toBe(true);
+      });
+
+      test('returns true when 1 task completed out of 1', () => {
+        expect(isSessionComplete(null, 1, 1)).toBe(true);
+      });
+
+      test('returns false when 0 tasks completed out of 1', () => {
+        expect(isSessionComplete(null, 0, 1)).toBe(false);
+      });
+
+      test('handles large task counts correctly', () => {
+        expect(isSessionComplete(null, 999, 1000)).toBe(false);
+        expect(isSessionComplete(null, 1000, 1000)).toBe(true);
+        expect(isSessionComplete(null, 1001, 1000)).toBe(true);
       });
 
       test('completion is based on task counts, not engine status', () => {
@@ -527,6 +549,41 @@ describe('run command', () => {
 
       test('parallelAllComplete=false with incomplete counts', () => {
         expect(isSessionComplete(false, 3, 5)).toBe(false);
+      });
+
+      test('parallelAllComplete=true with zero tasks', () => {
+        expect(isSessionComplete(true, 0, 0)).toBe(true);
+      });
+
+      test('parallelAllComplete=false with zero tasks', () => {
+        expect(isSessionComplete(false, 0, 0)).toBe(false);
+      });
+
+      test('parallelAllComplete overrides task count logic completely', () => {
+        // When parallel mode sets a value, task counts are ignored
+        expect(isSessionComplete(true, 0, 100)).toBe(true);
+        expect(isSessionComplete(true, 50, 100)).toBe(true);
+        expect(isSessionComplete(true, 100, 100)).toBe(true);
+        expect(isSessionComplete(false, 0, 100)).toBe(false);
+        expect(isSessionComplete(false, 50, 100)).toBe(false);
+        expect(isSessionComplete(false, 100, 100)).toBe(false);
+      });
+    });
+
+    describe('nullish coalescing behavior', () => {
+      test('null triggers fallback to task count check', () => {
+        expect(isSessionComplete(null, 5, 5)).toBe(true);
+        expect(isSessionComplete(null, 4, 5)).toBe(false);
+      });
+
+      test('boolean false does NOT trigger fallback', () => {
+        // false is not nullish, so it does not fall through to task count check
+        expect(isSessionComplete(false, 5, 5)).toBe(false);
+      });
+
+      test('boolean true does NOT trigger fallback', () => {
+        // true is not nullish, so it does not fall through to task count check
+        expect(isSessionComplete(true, 0, 5)).toBe(true);
       });
     });
   });
