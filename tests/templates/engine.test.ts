@@ -31,6 +31,7 @@ import {
   DEFAULT_TEMPLATE,
   BEADS_TEMPLATE,
   BEADS_BV_TEMPLATE,
+  BEADS_RUST_TEMPLATE,
   JSON_TEMPLATE,
 } from '../../src/templates/builtin.js';
 import type { TrackerTask } from '../../src/plugins/trackers/types.js';
@@ -119,6 +120,10 @@ describe('Template Engine - Pure Functions', () => {
       expect(getBuiltinTemplate('json')).toBe(JSON_TEMPLATE);
     });
 
+    test('returns BEADS_RUST_TEMPLATE for "beads-rust" type', () => {
+      expect(getBuiltinTemplate('beads-rust')).toBe(BEADS_RUST_TEMPLATE);
+    });
+
     test('returns DEFAULT_TEMPLATE for unknown type', () => {
       expect(getBuiltinTemplate('unknown' as any)).toBe(DEFAULT_TEMPLATE);
     });
@@ -135,6 +140,10 @@ describe('Template Engine - Pure Functions', () => {
 
     test('maps json plugin to json type', () => {
       expect(getTemplateTypeFromPlugin('json')).toBe('json');
+    });
+
+    test('maps beads-rust plugin to beads-rust type', () => {
+      expect(getTemplateTypeFromPlugin('beads-rust')).toBe('beads-rust');
     });
 
     test('maps unknown plugin to default type', () => {
@@ -176,6 +185,10 @@ describe('Template Engine - Pure Functions', () => {
 
     test('returns default.hbs for default type', () => {
       expect(getTemplateFilename('default')).toBe('default.hbs');
+    });
+
+    test('returns beads-rust.hbs for beads-rust type', () => {
+      expect(getTemplateFilename('beads-rust')).toBe('beads-rust.hbs');
     });
   });
 
@@ -542,6 +555,15 @@ describe('Template Engine - Loading (Filesystem)', () => {
       // Source should be global or builtin for default
       expect(result.source?.includes('default')).toBe(true);
     });
+
+    test('loads template for beads-rust tracker', () => {
+      const result = loadTemplate(undefined, 'beads-rust', testDir);
+
+      expect(result.success).toBe(true);
+      expect(result.content).toBeTruthy();
+      // Source should be global or builtin for beads-rust
+      expect(result.source?.includes('beads-rust')).toBe(true);
+    });
   });
 
   describe('loadTemplate - Relative Path Resolution', () => {
@@ -770,6 +792,8 @@ describe('Template Engine - Installation', () => {
       const result = freshInstallBuiltinTemplates(false);
 
       // The function returns results for all four templates (not undefined)
+      // Templates: default, beads, beads-bv, json
+      // Note: beads-rust template exists but is not included in installBuiltinTemplates yet
       expect(result).toBeDefined();
       expect(result.results).toBeDefined();
       expect(result.results.length).toBe(4);
