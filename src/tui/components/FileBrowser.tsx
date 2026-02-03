@@ -44,7 +44,7 @@ export interface FileBrowserProps {
 /**
  * Truncate path for display, replacing home directory with ~
  */
-function formatPath(path: string): string {
+export function formatPath(path: string): string {
   const home = homedir();
   if (path === home || path.startsWith(home + sep)) {
     return '~' + path.slice(home.length);
@@ -55,7 +55,7 @@ function formatPath(path: string): string {
 /**
  * Truncate text to fit within a given width
  */
-function truncateText(text: string, maxWidth: number): string {
+export function truncateText(text: string, maxWidth: number): string {
   if (text.length <= maxWidth) {
     return text;
   }
