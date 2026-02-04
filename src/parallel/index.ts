@@ -447,8 +447,13 @@ export class ParallelExecutor {
       // Execute batch of workers in parallel
       const results = await this.executeBatch(batch);
 
-      // Merge completed workers sequentially
+      // Phase 1: Attempt all merges first, collect conflicts
       this.status = 'merging';
+      const pendingConflicts: Array<{
+        operation: MergeOperation;
+        workerResult: WorkerResult;
+      }> = [];
+
       for (const result of results) {
         if (this.shouldStop) break;
 
@@ -456,12 +461,12 @@ export class ParallelExecutor {
           groupTasksCompleted++;
           this.totalTasksCompleted++;
 
-          // Enqueue and process merge first, only mark complete on successful merge
+          // Enqueue and process merge
           this.mergeEngine.enqueue(result);
           const mergeResult = await this.mergeEngine.processNext();
 
           if (mergeResult?.success) {
-            // Merge succeeded - now mark task as complete in tracker
+            // Merge succeeded - mark task as complete in tracker
             try {
               await this.tracker.completeTask(result.task.id);
             } catch {
@@ -472,52 +477,59 @@ export class ParallelExecutor {
             groupMergesCompleted++;
             this.totalMergesCompleted++;
           } else if (mergeResult?.hadConflicts) {
-            // Attempt conflict resolution
+            // Collect conflict for later resolution (don't resolve yet)
             const operation = this.mergeEngine
               .getQueue()
               .find((op) => op.id === mergeResult.operationId);
 
             if (operation && this.config.aiConflictResolution) {
-              const resolutions =
-                await this.conflictResolver.resolveConflicts(operation);
-              const allResolved = resolutions.every((r) => r.success);
-
-              if (allResolved) {
-                // Conflict resolution succeeded - now mark task as complete
-                this.pendingConflictOperation = null;
-                this.pendingConflictWorkerResult = null;
-                try {
-                  await this.tracker.completeTask(result.task.id);
-                } catch {
-                  // Log but don't fail after successful resolution
-                }
-                // Merge worker's progress.md into main so subsequent workers see learnings
-                await this.mergeProgressFile(result);
-                this.totalConflictsResolved += resolutions.length;
-                groupMergesCompleted++;
-                this.totalMergesCompleted++;
-              } else {
-                // Conflict resolution failed - track for retry/skip
-                this.pendingConflictOperation = operation;
-                this.pendingConflictWorkerResult = result;
-                // Don't mark task as complete
-                groupMergesFailed++;
-                await this.handleMergeFailure(result);
-              }
+              pendingConflicts.push({ operation, workerResult: result });
             } else {
-              // AI conflict resolution disabled - don't mark task as complete
+              // AI conflict resolution disabled - mark as failed
               groupMergesFailed++;
               await this.handleMergeFailure(result);
             }
           } else {
             // Merge failed (non-conflict) - don't mark task as complete
-            // Invoke recovery so task gets requeued/reset in tracker
             groupMergesFailed++;
             await this.handleMergeFailure(result);
           }
         } else {
           groupTasksFailed++;
           this.totalTasksFailed++;
+        }
+      }
+
+      // Phase 2: Resolve all collected conflicts after all merges attempted
+      if (pendingConflicts.length > 0 && !this.shouldStop) {
+        for (const { operation, workerResult } of pendingConflicts) {
+          if (this.shouldStop) break;
+
+          const resolutions =
+            await this.conflictResolver.resolveConflicts(operation);
+          const allResolved = resolutions.every((r) => r.success);
+
+          if (allResolved) {
+            // Conflict resolution succeeded - mark task as complete
+            this.pendingConflictOperation = null;
+            this.pendingConflictWorkerResult = null;
+            try {
+              await this.tracker.completeTask(workerResult.task.id);
+            } catch {
+              // Log but don't fail after successful resolution
+            }
+            // Merge worker's progress.md into main
+            await this.mergeProgressFile(workerResult);
+            this.totalConflictsResolved += resolutions.length;
+            groupMergesCompleted++;
+            this.totalMergesCompleted++;
+          } else {
+            // Conflict resolution failed - track for retry/skip
+            this.pendingConflictOperation = operation;
+            this.pendingConflictWorkerResult = workerResult;
+            groupMergesFailed++;
+            await this.handleMergeFailure(workerResult);
+          }
         }
       }
     }

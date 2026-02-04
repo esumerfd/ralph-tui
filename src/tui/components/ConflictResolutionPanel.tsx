@@ -226,7 +226,7 @@ export const ConflictResolutionPanel = memo(function ConflictResolutionPanel({
               </span>
             ) : state === 'in-progress' ? (
               <span fg={colors.status.info} attributes={boldAttr}>
-                {SPINNER_FRAMES[spinnerFrame % SPINNER_FRAMES.length]} AI Resolving Conflicts
+                {statusIndicators.merging} AI Resolving Conflicts
               </span>
             ) : (
               <span fg={colors.status.warning} attributes={boldAttr}>
@@ -266,11 +266,6 @@ export const ConflictResolutionPanel = memo(function ConflictResolutionPanel({
         </text>
 
         {/* State-specific status message */}
-        {state === 'in-progress' && currentlyResolvingFile && (
-          <text fg={colors.status.info}>
-            {SPINNER_FRAMES[spinnerFrame % SPINNER_FRAMES.length]} Processing: {currentlyResolvingFile}
-          </text>
-        )}
         {state === 'has-failures' && (
           <box style={{ marginTop: 1, marginBottom: 1 }}>
             <text fg={colors.status.error}>
